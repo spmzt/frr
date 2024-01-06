@@ -9,6 +9,10 @@
 #include <linux/rtnetlink.h>
 #endif
 
+#ifdef __FreeBSD__
+#include "fib.h"
+#endif
+
 #include <lib/version.h>
 #include "getopt.h"
 #include "command.h"
@@ -439,6 +443,11 @@ int main(int argc, char **argv)
 	/*
 	 * Initialize NS( and implicitly the VRF module), and make kernel
 	 * routing socket. */
+#ifdef __FreeBSD__
+	if (vrf_is_backend_fib())
+		zebra_fib_init();
+	else
+#endif
 	zebra_ns_init();
 	router_id_cmd_init();
 	zebra_vty_init();

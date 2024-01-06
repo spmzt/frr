@@ -19,6 +19,12 @@ static int fib_current_id;
 static int fib_previous_id;
 static int fib_current_max;
 
+static inline int fib_compare(const struct fib *fib, const struct fib *fib2);
+
+RB_GENERATE(fib_head, fib, entry, fib_compare)
+
+static struct fib_head fib_tree = RB_INITIALIZER(&fib_tree);
+
 static int have_fib(void)
 {
 #ifdef __FreeBSD__
@@ -26,6 +32,53 @@ static int have_fib(void)
 #else
 	return 0;
 #endif
+}
+
+int zebra_fib_init(void)
+{
+	struct fib *default_fib;
+	fib_id_t fib_id;
+	struct fib *fib;
+
+    fib_id = FIB_DEFAULT;
+
+	// ns_init_management(ns_id_external, ns_id);
+	// ns = ns_get_default();
+	// if (ns)
+	// 	ns->relative_default_ns = ns_id;
+
+	// default_fib = ns_lookup(NS_DEFAULT);
+	// if (!default_fib) {
+	// 	flog_err(EC_ZEBRA_NS_NO_DEFAULT,
+	// 		 "%s: failed to find default ns", __func__);
+	// 	exit(EXIT_FAILURE); /* This is non-recoverable */
+	// }
+
+	// /* Do any needed per-NS data structure allocation. */
+	// zebra_ns_new(default_fib);
+	// dzns = default_fib->info;
+
+	// /* Register zebra VRF callbacks, create and activate default VRF. */
+	// zebra_vrf_init();
+
+	// /* Default NS is activated */
+	// zebra_ns_enable(ns_id_external, (void **)&dzns);
+
+	// if (vrf_is_backend_netns()) {
+	// 	ns_add_hook(NS_NEW_HOOK, zebra_ns_new);
+	// 	ns_add_hook(NS_ENABLE_HOOK, zebra_ns_enabled);
+	// 	ns_add_hook(NS_DISABLE_HOOK, zebra_ns_disabled);
+	// 	ns_add_hook(NS_DELETE_HOOK, zebra_ns_delete);
+	// 	zebra_ns_notify_parse();
+	// 	zebra_ns_notify_init();
+	// }
+
+	// return 0;
+}
+
+static inline int fib_compare(const struct fib *a, const struct fib *b)
+{
+	return (a->fib_id - b->fib_id);
 }
 
 void fib_init(void)
