@@ -643,6 +643,11 @@ int vrf_is_backend_netns(void)
 	return (vrf_backend == VRF_BACKEND_NETNS);
 }
 
+int vrf_is_backend_fib(void)
+{
+	return (vrf_backend == VRF_BACKEND_FIB);
+}
+
 int vrf_get_backend(void)
 {
 	if (!vrf_backend_configured)
@@ -657,6 +662,7 @@ int vrf_configure_backend(enum vrf_backend_type backend)
 	case VRF_BACKEND_UNKNOWN:
 	case VRF_BACKEND_NETNS:
 	case VRF_BACKEND_VRF_LITE:
+	case VRF_BACKEND_FIB:
 		break;
 	case VRF_BACKEND_MAX:
 		return -1;

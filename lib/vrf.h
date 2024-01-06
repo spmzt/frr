@@ -97,6 +97,7 @@ enum vrf_backend_type {
 	VRF_BACKEND_NETNS,
 	VRF_BACKEND_UNKNOWN,
 	VRF_BACKEND_MAX,
+	VRF_BACKEND_FIB,
 };
 
 extern struct vrf_id_head vrfs_by_id;

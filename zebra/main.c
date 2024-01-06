@@ -92,6 +92,7 @@ const struct option longopts[] = {
 	{ "v6-with-v4-nexthops", no_argument, NULL, OPTION_V6_WITH_V4_NEXTHOP },
 #ifdef HAVE_NETLINK
 	{ "vrfwnetns", no_argument, NULL, 'n' },
+	{ "vrffib", no_argument, NULL, 'f' },
 	{ "nl-bufsize", required_argument, NULL, 's' },
 	{ "v6-rr-semantics", no_argument, NULL, OPTION_V6_RR_SEMANTICS },
 #endif /* HAVE_NETLINK */
@@ -337,6 +338,7 @@ int main(int argc, char **argv)
 #ifdef HAVE_NETLINK
 		    "  -s, --nl-bufsize          Set netlink receive buffer size\n"
 		    "  -n, --vrfwnetns           Use NetNS as VRF backend\n"
+		    "  -f, --vrffib              Use FIB as VRF backend\n"
 		    "      --v6-rr-semantics     Use v6 RR semantics\n"
 #else
 		    "  -s,                       Set kernel socket receive buffer size\n"
@@ -402,6 +404,9 @@ int main(int argc, char **argv)
 #ifdef HAVE_NETLINK
 		case 'n':
 			vrf_configure_backend(VRF_BACKEND_NETNS);
+			break;
+		case 'f':
+			vrf_configure_backend(VRF_BACKEND_FIB);
 			break;
 		case OPTION_V6_RR_SEMANTICS:
 			zrouter.v6_rr_semantics = true;
