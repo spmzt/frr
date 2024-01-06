@@ -157,8 +157,10 @@ struct vrf *vrf_get(vrf_id_t vrf_id, const char *name)
 	if (name && vrf->name[0] != '\0' && strcmp(name, vrf->name)) {
 		/* update the vrf name */
 		RB_REMOVE(vrf_name_head, &vrfs_by_name, vrf);
+#ifdef GNU_LINUX
 		strlcpy(vrf->data.l.netns_name,
 			name, NS_NAMSIZ);
+#endif
 		strlcpy(vrf->name, name, sizeof(vrf->name));
 		RB_INSERT(vrf_name_head, &vrfs_by_name, vrf);
 	} else if (name && vrf->name[0] == '\0') {
@@ -575,18 +577,37 @@ int vrf_socket(int domain, int type, int protocol, vrf_id_t vrf_id,
 {
 	int ret, save_errno, ret2;
 
+#ifdef GNU_LINUX
 	ret = vrf_switch_to_netns(vrf_id);
 	if (ret < 0)
 		flog_err_sys(EC_LIB_SOCKET, "%s: Can't switch to VRF %u (%s)",
 			     __func__, vrf_id, safe_strerror(errno));
+#endif
+
+#ifdef __FreeBSD__
+	// TODO: Should get current fib for future rollback
+	ret = setfib();
+	if (ret < 0)
+		flog_err_sys(EC_LIB_SOCKET, "%s: Can't switch to VRF %u (%s)",
+			     __func__, vrf_id, safe_strerror(errno));
+#endif
 
 	ret = socket(domain, type, protocol);
 	save_errno = errno;
+#ifdef GNU_LINUX
 	ret2 = vrf_switchback_to_initial();
 	if (ret2 < 0)
 		flog_err_sys(EC_LIB_SOCKET,
 			     "%s: Can't switchback from VRF %u (%s)", __func__,
 			     vrf_id, safe_strerror(errno));
+#endif
+
+#ifdef __FreeBSD__
+	ret2 = setfib(0);
+		flog_err_sys(EC_LIB_SOCKET,
+			     "%s: Can't switchback from VRF %u (%s)", __func__,
+			     vrf_id, safe_strerror(errno));
+#endif
 	errno = save_errno;
 	if (ret <= 0)
 		return ret;
@@ -833,6 +854,18 @@ int vrf_bind(vrf_id_t vrf_id, int fd, const char *ifname)
 		zlog_err("bind to interface %s failed, errno=%d", ifname,
 			 errno);
 #endif /* SO_BINDTODEVICE */
+
+#ifdef SIOCSIFFIB
+	struct ifreq ifr;
+	memset(&ifr, '\0', sizeof(ifr));
+	strcpy(ifr.ifr_name, ifname, sizeof(ifname));
+	ifr.ifr_fib = vrf.data.freebsd.table_id;
+	int sock = socket(PF_INET, SOCK_STREAM, 0);
+	ret = ioctl(sock, SIOCSIFFIB, &ifr);
+	if (ret < 0)
+		zlog_err("bind to fib %d failed, errno=%d",
+			 vrf.data.freebsd.table_id, errno);
+#endif /* SIOCSIFFIB */
 	return ret;
 }
 int vrf_getaddrinfo(const char *node, const char *service,
@@ -841,6 +874,7 @@ int vrf_getaddrinfo(const char *node, const char *service,
 {
 	int ret, ret2, save_errno;
 
+	// TODO: Handle netns (OS-Specific)
 	ret = vrf_switch_to_netns(vrf_id);
 	if (ret < 0)
 		flog_err_sys(EC_LIB_SOCKET, "%s: Can't switch to VRF %u (%s)",
@@ -860,6 +894,7 @@ int vrf_ioctl(vrf_id_t vrf_id, int d, unsigned long request, char *params)
 {
 	int ret, saved_errno, rc;
 
+	// TODO: Handle netns (OS-Specific)
 	ret = vrf_switch_to_netns(vrf_id);
 	if (ret < 0) {
 		flog_err_sys(EC_LIB_SOCKET, "%s: Can't switch to VRF %u (%s)",
@@ -882,6 +917,7 @@ int vrf_sockunion_socket(const union sockunion *su, vrf_id_t vrf_id,
 {
 	int ret, save_errno, ret2;
 
+	// TODO: Handle netns (OS-Specific)
 	ret = vrf_switch_to_netns(vrf_id);
 	if (ret < 0)
 		flog_err_sys(EC_LIB_SOCKET, "%s: Can't switch to VRF %u (%s)",
