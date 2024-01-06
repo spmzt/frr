@@ -16,6 +16,7 @@
 #include "memory.h"
 #include "command.h"
 #include "ns.h"
+#include "fib.h"
 #include "privs.h"
 #include "nexthop_group.h"
 #include "lib_errors.h"
@@ -96,8 +97,32 @@ int vrf_switch_to_netns(vrf_id_t vrf_id)
 	return ns_switch_to_netns(name);
 }
 
+int vrf_switch_to_fib(vrf_id_t vrf_id)
+{
+	uint32_t fibnum;
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+
+	/* VRF is default VRF. silently ignore */
+	if (!vrf || vrf->vrf_id == VRF_DEFAULT)
+		return 1;	/* 1 = default */
+	/* VRF has no fib table. silently ignore */
+	if (vrf->data.freebsd.table_id == '\0')
+		return 2;	/* 2 = no netns */
+	fibnum = vrf->data.freebsd.table_id;
+	if (debug_vrf)
+		zlog_debug("VRF_SWITCH: %s(%u)", name, vrf->vrf_id);
+	return fib_switch_to_table(fibnum);
+}
+
 int vrf_switchback_to_initial(void)
 {
+#ifdef __FreeBSD__
+	int ret = fib_switchback_to_initial();
+	if (ret == 0 && debug_vrf)
+		zlog_debug("VRF_SWITCHBACK");
+	return ret;
+#endif
+
 	int ret = ns_switchback_to_initial();
 
 	if (ret == 0 && debug_vrf)
@@ -500,6 +525,8 @@ void vrf_init(int (*create)(struct vrf *), int (*enable)(struct vrf *),
 
 	/* initialise NS, in case VRF backend if NETNS */
 	ns_init();
+	/* initialise fib, in case VRF backend if FIB */
+	fib_init();
 	if (debug_vrf)
 		zlog_debug("%s: Initializing VRF subsystem", __func__);
 
@@ -577,7 +604,7 @@ int vrf_socket(int domain, int type, int protocol, vrf_id_t vrf_id,
 {
 	int ret, save_errno, ret2;
 
-#ifdef GNU_LINUX
+#ifdef HAVE_NETNS
 	ret = vrf_switch_to_netns(vrf_id);
 	if (ret < 0)
 		flog_err_sys(EC_LIB_SOCKET, "%s: Can't switch to VRF %u (%s)",
@@ -585,8 +612,7 @@ int vrf_socket(int domain, int type, int protocol, vrf_id_t vrf_id,
 #endif
 
 #ifdef __FreeBSD__
-	// TODO: Should get current fib for future rollback
-	ret = setfib();
+	ret = vrf_switch_to_fib(vrf_id);
 	if (ret < 0)
 		flog_err_sys(EC_LIB_SOCKET, "%s: Can't switch to VRF %u (%s)",
 			     __func__, vrf_id, safe_strerror(errno));
@@ -594,20 +620,13 @@ int vrf_socket(int domain, int type, int protocol, vrf_id_t vrf_id,
 
 	ret = socket(domain, type, protocol);
 	save_errno = errno;
-#ifdef GNU_LINUX
+
 	ret2 = vrf_switchback_to_initial();
 	if (ret2 < 0)
 		flog_err_sys(EC_LIB_SOCKET,
 			     "%s: Can't switchback from VRF %u (%s)", __func__,
 			     vrf_id, safe_strerror(errno));
-#endif
 
-#ifdef __FreeBSD__
-	ret2 = setfib(0);
-		flog_err_sys(EC_LIB_SOCKET,
-			     "%s: Can't switchback from VRF %u (%s)", __func__,
-			     vrf_id, safe_strerror(errno));
-#endif
 	errno = save_errno;
 	if (ret <= 0)
 		return ret;
@@ -856,16 +875,9 @@ int vrf_bind(vrf_id_t vrf_id, int fd, const char *ifname)
 #endif /* SO_BINDTODEVICE */
 
 #ifdef SIOCSIFFIB
-	struct ifreq ifr;
-	memset(&ifr, '\0', sizeof(ifr));
-	strcpy(ifr.ifr_name, ifname, sizeof(ifname));
-	ifr.ifr_fib = vrf.data.freebsd.table_id;
-	int sock = socket(PF_INET, SOCK_STREAM, 0);
-	ret = ioctl(sock, SIOCSIFFIB, &ifr);
-	if (ret < 0)
-		zlog_err("bind to fib %d failed, errno=%d",
-			 vrf.data.freebsd.table_id, errno);
+	ret = fib_bind_if(vrf, ifname);
 #endif /* SIOCSIFFIB */
+
 	return ret;
 }
 int vrf_getaddrinfo(const char *node, const char *service,
