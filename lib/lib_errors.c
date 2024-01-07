@@ -236,6 +236,12 @@ static struct log_ref ferr_lib_err[] = {
 		.suggestion = "Open an Issue with all relevant log files and restart FRR"
 	},
 	{
+		.code = EC_LIB_FIB,
+		.title = "FreeBSD FIB Subsystem Error",
+		.description = "FRR has detected a problem with FIB data from the kernel as it deviates from what we would expect to happen via normal kernel messaging",
+		.suggestion = "Open an Issue with all relevant log files and restart FRR"
+	},
+	{
 		.code = EC_LIB_DEVELOPMENT,
 		.title = "Developmental Escape Error",
 		.description = "FRR has detected an issue where new development has not properly updated all code paths.",

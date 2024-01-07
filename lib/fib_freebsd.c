@@ -4,20 +4,15 @@
 // SO_SETFIB
 // comment?
 
-#include <zebra.h>
 #include "log.h"
 #include "memory.h"
 #include "fib.h"
 
 DEFINE_MTYPE_STATIC(LIB, FIB, "FIB Context");
 DEFINE_MTYPE_STATIC(LIB, FIB_ID, "FIB ID");
+DEFINE_MTYPE_STATIC(LIB, FIB_NAME, "FIB NAME");
 
 #define MAXFIB 65536;
-
-static int fib_debug;
-static int fib_current_id;
-static int fib_previous_id;
-static int fib_current_max;
 
 static inline int fib_compare(const struct fib *fib, const struct fib *fib2);
 
@@ -25,55 +20,132 @@ RB_GENERATE(fib_head, fib, entry, fib_compare)
 
 static struct fib_head fib_tree = RB_INITIALIZER(&fib_tree);
 
-static int have_fib(void)
+static struct fib *default_fib;
+static int fib_current_id;
+static int fib_previous_id;
+static int fib_current_max;
+
+static int fib_debug;
+
+/* Holding FIB hooks  */
+static struct fib_master {
+	int (*fib_new_hook)(struct fib *fib);
+	int (*fib_delete_hook)(struct fib *fib);
+	int (*fib_enable_hook)(struct fib *fib);
+	int (*fib_disable_hook)(struct fib *fib);
+} fib_master = {
+	0,
+};
+
+/* Look up a FIB by identifier. */
+static struct fib *fib_lookup_internal(fib_id_t fib_id)
+{
+	struct fib fib;
+
+	fib.fib_id = fib_id;
+	return RB_FIND(fib_head, &fib_tree, &fib);
+}
+
+struct fib *fib_lookup(fib_id_t fib_id)
+{
+	return fib_lookup_internal(fib_id);
+}
+
+/* Look up a FIB by name */
+static struct fib *fib_lookup_name_internal(const char *name)
+{
+	struct fib *fib = NULL;
+
+	RB_FOREACH (fib, fib_head, &fib_tree) {
+		if (fib->name != NULL) {
+			if (strcmp(name, fib->name) == 0)
+				return fib;
+		}
+	}
+	return NULL;
+}
+
+static struct fib *fib_get_created(struct fib *fib, char *name,
+					  fib_id_t fib_id)
+{
+	int created = 0;
+	/*
+	 * Initialize interfaces.
+	 */
+	if (!fib && !name && fib_id == FIB_DEFAULT)
+		fib = fib_lookup_internal(fib_id);
+	if (!fib && name)
+		fib = fib_lookup_name_internal(name);
+	if (!fib) {
+		fib = XCALLOC(MTYPE_FIB, sizeof(struct fib));
+		fib->fib_id = fib_id;
+		if (name)
+			fib->name = XSTRDUP(MTYPE_FIB_NAME, name);
+		RB_INSERT(fib_head, &fib_tree, fib);
+		created = 1;
+	}
+	if (fib_id != fib->fib_id) {
+		RB_REMOVE(fib_head, &fib_tree, fib);
+		fib->fib_id = fib_id;
+		RB_INSERT(fib_head, &fib_tree, fib);
+	}
+	if (!created)
+		return fib;
+	if (fib_debug) {
+		zlog_info("FIB %u is created.", fib->fib_id);
+	}
+	if (fib_master.fib_new_hook)
+		(*fib_master.fib_new_hook)(fib);
+	return fib;
+}
+
+static int fib_enable(struct fib *fib, void (*func)(fib_id_t, void *))
+{
+	if (!fib_is_enabled(fib)) {
+		if (have_fib()) {
+			fib_set_current_max(fib->fib_id);
+		} else {
+			errno = -ENOTSUP;
+		}
+
+		if (!fib_is_enabled(fib)) {
+			flog_err_sys(EC_LIB_SYSTEM_CALL,
+				     "Can not enable FIB %u: %s!", fib->fib_id,
+				     safe_strerror(errno));
+			return 0;
+		}
+
+		if (func)
+			func(fib->fib_id, (void *)fib->vrf_ctxt);
+		if (fib_debug) {
+			zlog_info("FIB %u is enabled.", fib->fib_id);
+		}
+		/* zebra first receives FIB enable event,
+		 * then VRF enable event
+		 */
+		if (fib_master.fib_enable_hook)
+			(*fib_master.fib_enable_hook)(fib);
+	}
+
+	return 1;
+}
+
+static int fib_is_enabled(struct fib *fib)
+{
+	if (have_fib())
+		fib_get_current_max();
+		return fib && fib->fib_id <= fib_current_max;
+	else
+		return fib && fib->fib_id == 0;
+}
+
+int have_fib(void)
 {
 #ifdef __FreeBSD__
     return 1;
 #else
 	return 0;
 #endif
-}
-
-int zebra_fib_init(void)
-{
-	struct fib *default_fib;
-	fib_id_t fib_id;
-	struct fib *fib;
-
-    fib_id = FIB_DEFAULT;
-
-	// ns_init_management(ns_id_external, ns_id);
-	// ns = ns_get_default();
-	// if (ns)
-	// 	ns->relative_default_ns = ns_id;
-
-	// default_fib = ns_lookup(NS_DEFAULT);
-	// if (!default_fib) {
-	// 	flog_err(EC_ZEBRA_NS_NO_DEFAULT,
-	// 		 "%s: failed to find default ns", __func__);
-	// 	exit(EXIT_FAILURE); /* This is non-recoverable */
-	// }
-
-	// /* Do any needed per-NS data structure allocation. */
-	// zebra_ns_new(default_fib);
-	// dzns = default_fib->info;
-
-	// /* Register zebra VRF callbacks, create and activate default VRF. */
-	// zebra_vrf_init();
-
-	// /* Default NS is activated */
-	// zebra_ns_enable(ns_id_external, (void **)&dzns);
-
-	// if (vrf_is_backend_netns()) {
-	// 	ns_add_hook(NS_NEW_HOOK, zebra_ns_new);
-	// 	ns_add_hook(NS_ENABLE_HOOK, zebra_ns_enabled);
-	// 	ns_add_hook(NS_DISABLE_HOOK, zebra_ns_disabled);
-	// 	ns_add_hook(NS_DELETE_HOOK, zebra_ns_delete);
-	// 	zebra_ns_notify_parse();
-	// 	zebra_ns_notify_init();
-	// }
-
-	// return 0;
 }
 
 static inline int fib_compare(const struct fib *a, const struct fib *b)
@@ -95,6 +167,7 @@ void fib_init(void)
         fib_get_current_max();
 	else {
 		fib_current_id = -1;
+		fib_current_max = 0;
 	}
     fib_previous_id = fib_current_id;
 	fib_initialised = 1;
@@ -171,4 +244,24 @@ int fib_bind_if(vrf_id_t *vrf, const char *ifname)
 		zlog_err("bind to fib %d failed, errno=%d",
 			 vrf.data.freebsd.table_id, errno);
     return ret;
+}
+
+void fib_init_management(fib_id_t fib_id)
+{
+	default_fib = fib_get_created(NULL, NULL, fib_id);
+	if (!default_fib) {
+		flog_err(EC_LIB_FIB, "%s: failed to create the default FIB!",
+			 __func__);
+		exit(1);
+	}
+
+	/* Set the default NS name. */
+	default_fib->name = XSTRDUP(MTYPE_FIB_NAME, FIB_DEFAULT_NAME);
+
+	/* Enable the default FIB. */
+	if (!fib_enable(default_fib, NULL)) {
+		flog_err(EC_LIB_FIB, "%s: failed to enable the default FIB!",
+			 __func__);
+		exit(1);
+	}
 }

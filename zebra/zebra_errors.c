@@ -303,6 +303,12 @@ static struct log_ref ferr_zebra_err[] = {
 		.description = "Zebra NameSpace subsystem failed to find a Default namespace during initialization.",
 		.suggestion = "Open an Issue with all relevant log files and restart FRR",
 	},
+	{
+		.code = EC_ZEBRA_FIB_NO_DEFAULT,
+		.title = "Zebra FIB failed to find Default",
+		.description = "Zebra FIB subsystem failed to find a Default fib during initialization.",
+		.suggestion = "Open an Issue with all relevant log files and restart FRR",
+	},
 	/* Warnings */
 	{
 		.code = EC_ZEBRAING_LM_PROTO_MISMATCH,

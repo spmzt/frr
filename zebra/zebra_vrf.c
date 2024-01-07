@@ -585,6 +585,61 @@ DEFUN (no_vrf_netns,
 	return CMD_SUCCESS;
 }
 
+// DEFPY (vrf_fib,
+//        vrf_fib_cmd,
+//        "fib id$fib_id",
+//        "Attach VRF to a Namespace\n"
+//        "The file name in " NS_RUN_DIR ", or a full pathname\n")
+// {
+// 	char *pathname = ns_netns_pathname(vty, fib_id);
+// 	int ret;
+
+// 	VTY_DECLVAR_CONTEXT(vrf, vrf);
+
+// 	if (!pathname)
+// 		return CMD_WARNING_CONFIG_FAILED;
+
+// 	frr_with_privs(&zserv_privs) {
+// 		ret = zebra_vrf_netns_handler_create(
+// 			vty, vrf, pathname, NS_UNKNOWN, NS_UNKNOWN, NS_UNKNOWN);
+// 	}
+
+// 	return ret;
+// }
+
+// DEFUN (no_vrf_netns,
+//        no_vrf_netns_cmd,
+//        "no netns [NAME]",
+//        NO_STR
+//        "Detach VRF from a Namespace\n"
+//        "The file name in " NS_RUN_DIR ", or a full pathname\n")
+// {
+// 	struct ns *ns = NULL;
+
+// 	VTY_DECLVAR_CONTEXT(vrf, vrf);
+
+// 	if (!vrf_is_backend_netns()) {
+// 		vty_out(vty, "VRF backend is not Netns. Aborting\n");
+// 		return CMD_WARNING_CONFIG_FAILED;
+// 	}
+// 	if (!vrf->ns_ctxt) {
+// 		vty_out(vty, "VRF %s(%u) is not configured with NetNS\n",
+// 			vrf->name, vrf->vrf_id);
+// 		return CMD_WARNING_CONFIG_FAILED;
+// 	}
+
+// 	ns = (struct ns *)vrf->ns_ctxt;
+
+// 	ns->vrf_ctxt = NULL;
+// 	vrf_disable(vrf);
+// 	/* vrf ID from VRF is necessary for Zebra
+// 	 * so that propagate to other clients is done
+// 	 */
+// 	ns_delete(ns);
+// 	vrf->ns_ctxt = NULL;
+// 	return CMD_SUCCESS;
+// }
+
 /* if ns_id is different and not VRF_UNKNOWN,
  * then update vrf identifier, and enable VRF
  */
@@ -691,4 +746,9 @@ void zebra_vrf_init(void)
 		install_element(VRF_NODE, &vrf_netns_cmd);
 		install_element(VRF_NODE, &no_vrf_netns_cmd);
 	}
+	// if (vrf_is_backend_fib() && have_fib()) {
+	// 	/* Install FIB commands. */
+	// 	install_element(VRF_NODE, &vrf_fib_cmd);
+	// 	install_element(VRF_NODE, &no_vrf_fib_cmd);
+	// }
 }
