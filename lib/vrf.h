@@ -51,7 +51,7 @@ struct vrf_data {
 			char netns_name[NS_NAMSIZ];
 		} l;
 		struct {
-			uint32_t table_id;
+			uint16_t table_id;
 		} freebsd;
 	};
 };

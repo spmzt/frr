@@ -162,9 +162,8 @@ int fib_set_current_max(int *fib_newmax)
 
 int fib_bind_if(vrf_id_t *vrf, const char *ifname)
 {
-	struct ifreq ifr;
-	memset(&ifr, '\0', sizeof(ifr));
-	strcpy(ifr.ifr_name, ifname, sizeof(ifname));
+	struct ifreq ifr = {};
+	strlcpy(ifr.ifr_name, ifname, sizeof(ifname));
 	ifr.ifr_fib = vrf.data.freebsd.table_id;
 	int sock = socket(PF_INET, SOCK_STREAM, 0);
 	ret = ioctl(sock, SIOCSIFFIB, &ifr);

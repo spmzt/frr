@@ -604,15 +604,13 @@ int vrf_socket(int domain, int type, int protocol, vrf_id_t vrf_id,
 {
 	int ret, save_errno, ret2;
 
-#ifdef HAVE_NETNS
-	ret = vrf_switch_to_netns(vrf_id);
+#ifdef __FreeBSD__
+	ret = vrf_switch_to_fib(vrf_id);
 	if (ret < 0)
 		flog_err_sys(EC_LIB_SOCKET, "%s: Can't switch to VRF %u (%s)",
 			     __func__, vrf_id, safe_strerror(errno));
-#endif
-
-#ifdef __FreeBSD__
-	ret = vrf_switch_to_fib(vrf_id);
+#else
+	ret = vrf_switch_to_netns(vrf_id);
 	if (ret < 0)
 		flog_err_sys(EC_LIB_SOCKET, "%s: Can't switch to VRF %u (%s)",
 			     __func__, vrf_id, safe_strerror(errno));
@@ -836,7 +834,7 @@ const char *vrf_get_default_name(void)
 
 int vrf_bind(vrf_id_t vrf_id, int fd, const char *ifname)
 {
-	int ret = 0;
+	int ret = -1;
 	struct interface *ifp;
 	struct vrf *vrf;
 
@@ -892,8 +890,18 @@ int vrf_getaddrinfo(const char *node, const char *service,
 {
 	int ret, ret2, save_errno;
 
-	// TODO: Handle netns (OS-Specific)
+#ifdef __FreeBSD__
+	ret = vrf_switch_to_fib(vrf_id);
+	if (ret < 0)
+		flog_err_sys(EC_LIB_SOCKET, "%s: Can't switch to VRF %u (%s)",
+			     __func__, vrf_id, safe_strerror(errno));
+#else
 	ret = vrf_switch_to_netns(vrf_id);
+	if (ret < 0)
+		flog_err_sys(EC_LIB_SOCKET, "%s: Can't switch to VRF %u (%s)",
+			     __func__, vrf_id, safe_strerror(errno));
+#endif
+
 	if (ret < 0)
 		flog_err_sys(EC_LIB_SOCKET, "%s: Can't switch to VRF %u (%s)",
 			     __func__, vrf_id, safe_strerror(errno));
@@ -912,7 +920,17 @@ int vrf_ioctl(vrf_id_t vrf_id, int d, unsigned long request, char *params)
 {
 	int ret, saved_errno, rc;
 
-	// TODO: Handle netns (OS-Specific)
+#ifdef __FreeBSD__
+	ret = vrf_switch_to_fib(vrf_id);
+	if (ret < 0)
+		flog_err_sys(EC_LIB_SOCKET, "%s: Can't switch to VRF %u (%s)",
+			     __func__, vrf_id, safe_strerror(errno));
+#else
+	ret = vrf_switch_to_netns(vrf_id);
+	if (ret < 0)
+		flog_err_sys(EC_LIB_SOCKET, "%s: Can't switch to VRF %u (%s)",
+			     __func__, vrf_id, safe_strerror(errno));
+#endif
 	ret = vrf_switch_to_netns(vrf_id);
 	if (ret < 0) {
 		flog_err_sys(EC_LIB_SOCKET, "%s: Can't switch to VRF %u (%s)",
@@ -935,7 +953,18 @@ int vrf_sockunion_socket(const union sockunion *su, vrf_id_t vrf_id,
 {
 	int ret, save_errno, ret2;
 
-	// TODO: Handle netns (OS-Specific)
+#ifdef __FreeBSD__
+	ret = vrf_switch_to_fib(vrf_id);
+	if (ret < 0)
+		flog_err_sys(EC_LIB_SOCKET, "%s: Can't switch to VRF %u (%s)",
+			     __func__, vrf_id, safe_strerror(errno));
+#else
+	ret = vrf_switch_to_netns(vrf_id);
+	if (ret < 0)
+		flog_err_sys(EC_LIB_SOCKET, "%s: Can't switch to VRF %u (%s)",
+			     __func__, vrf_id, safe_strerror(errno));
+#endif
+
 	ret = vrf_switch_to_netns(vrf_id);
 	if (ret < 0)
 		flog_err_sys(EC_LIB_SOCKET, "%s: Can't switch to VRF %u (%s)",
