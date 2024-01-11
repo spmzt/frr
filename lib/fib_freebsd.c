@@ -217,7 +217,7 @@ void fib_init(void)
 	fib_initialised = 1;
 }
 
-int fib_switch_to_table(const uint16_t *fibnum)
+int fib_switch_to_table(uint16_t fibnum)
 {
     int ret;
     int ret2;
@@ -288,19 +288,19 @@ int fib_get_current_max(void)
     return sysctlbyname("net.fibs", &fib_current_max, &len, NULL, 0);
 }
 
-int fib_set_current_max(int *fib_newmax)
+int fib_set_current_max(fib_id_t fib_newmax)
 {
-	if (*fib_newmax <= fib_current_max)
+	if (fib_newmax <= fib_current_max)
 		return 0;
     int ret;
     size_t newlen;
     newlen = sizeof(fib_newmax);
     size_t oldlen;
     oldlen = sizeof(fib_current_max);
-    ret = sysctlbyname("net.fibs", &fib_current_max, &oldlen, fib_newmax, newlen);
+    ret = sysctlbyname("net.fibs", &fib_current_max, &oldlen, &fib_newmax, newlen);
     if (ret >= 0)
     {
-        fib_current_max = *fib_newmax;
+        fib_current_max = fib_newmax;
     }
     return ret;
 }

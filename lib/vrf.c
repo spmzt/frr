@@ -110,7 +110,7 @@ int vrf_switch_to_fib(vrf_id_t vrf_id)
 		return 2;	/* 2 = no fib */
 	fibnum = vrf->data.freebsd.table_id;
 	if (debug_vrf)
-		zlog_debug("VRF_SWITCH: %s(%u)", vrf->vrf_id);
+		zlog_debug("VRF_SWITCH: %u", vrf->vrf_id);
 	return fib_switch_to_table(fibnum);
 }
 
