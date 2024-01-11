@@ -888,7 +888,7 @@ int vrf_bind(vrf_id_t vrf_id, int fd, const char *ifname)
 #endif /* SO_BINDTODEVICE */
 
 #ifdef SIOCSIFFIB
-	ret = fib_bind_if(vrf, ifname);
+	ret = fib_bind_if(vrf->data.freebsd.table_id, ifname);
 #endif /* SIOCSIFFIB */
 
 	return ret;
