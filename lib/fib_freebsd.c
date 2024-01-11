@@ -217,7 +217,7 @@ void fib_init(void)
 	fib_initialised = 1;
 }
 
-int fib_switch_to_table(const int *fibnum)
+int fib_switch_to_table(const uint16_t *fibnum)
 {
     int ret;
     int ret2;
@@ -305,7 +305,7 @@ int fib_set_current_max(int *fib_newmax)
     return ret;
 }
 
-int fib_bind_if(vrf_id_t *vrf, const char *ifname)
+int fib_bind_if(vrf *vrf, const char *ifname)
 {
 	struct ifreq ifr = {};
 	strlcpy(ifr.ifr_name, ifname, sizeof(ifname));

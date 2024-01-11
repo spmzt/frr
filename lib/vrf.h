@@ -267,7 +267,12 @@ extern const char *vrf_get_default_name(void);
 
 /* VRF switch from NETNS */
 extern int vrf_switch_to_netns(vrf_id_t vrf_id);
+
+/* VRF switch from FIB */
+extern int vrf_switch_to_fib(vrf_id_t vrf_id);
+
 extern int vrf_switchback_to_initial(void);
+
 
 /*
  * VRF backend routines
@@ -292,6 +297,7 @@ extern void vrf_install_commands(void);
 extern int vrf_configure_backend(enum vrf_backend_type backend);
 extern int vrf_get_backend(void);
 extern int vrf_is_backend_netns(void);
+extern int vrf_is_backend_fib(void);
 
 /* used internally to enable or disable VRF.
  * Notify a change in the VRF ID of the VRF

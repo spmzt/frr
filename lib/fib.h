@@ -4,6 +4,7 @@
 #include "openbsd-tree.h"
 #include "linklist.h"
 #include "vty.h"
+#include "vrf.h"
 
 /* the default FIB ID */
 #define FIB_DEFAULT 0
@@ -39,7 +40,7 @@ extern void fib_init_management(fib_id_t fib_id);
 
 extern struct fib *fib_lookup(fib_id_t fib_id);
 
-extern int fib_switch_to_table(const int *fibnum);
+extern int fib_switch_to_table(const uint16_t *fibnum);
 
 extern int fib_switchback_to_initial(void);
 
@@ -49,7 +50,7 @@ extern int fib_get_current_max(void);
 
 extern int fib_set_current_max(int *fib_newmax);
 
-extern int fib_bind_if(vrf_id_t *vrf, const char *ifname);
+extern int fib_bind_if(vrf *vrf, const char *ifname);
 
 extern int fib_enable(struct fib *fib, void (*func)(fib_id_t, void *));
 

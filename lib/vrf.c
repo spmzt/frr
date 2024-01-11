@@ -99,7 +99,7 @@ int vrf_switch_to_netns(vrf_id_t vrf_id)
 
 int vrf_switch_to_fib(vrf_id_t vrf_id)
 {
-	uint32_t fibnum;
+	uint16_t fibnum;
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 
 	/* VRF is default VRF. silently ignore */
@@ -110,20 +110,22 @@ int vrf_switch_to_fib(vrf_id_t vrf_id)
 		return 2;	/* 2 = no fib */
 	fibnum = vrf->data.freebsd.table_id;
 	if (debug_vrf)
-		zlog_debug("VRF_SWITCH: %s(%u)", name, vrf->vrf_id);
+		zlog_debug("VRF_SWITCH: %s(%u)", vrf->vrf_id);
 	return fib_switch_to_table(fibnum);
 }
 
 int vrf_switchback_to_initial(void)
 {
+	int ret;
+
 #ifdef __FreeBSD__
-	int ret = fib_switchback_to_initial();
+	ret = fib_switchback_to_initial();
 	if (ret == 0 && debug_vrf)
 		zlog_debug("VRF_SWITCHBACK");
 	return ret;
 #endif
 
-	int ret = ns_switchback_to_initial();
+	ret = ns_switchback_to_initial();
 
 	if (ret == 0 && debug_vrf)
 		zlog_debug("VRF_SWITCHBACK");
@@ -182,9 +184,9 @@ struct vrf *vrf_get(vrf_id_t vrf_id, const char *name)
 	if (name && vrf->name[0] != '\0' && strcmp(name, vrf->name)) {
 		/* update the vrf name */
 		RB_REMOVE(vrf_name_head, &vrfs_by_name, vrf);
-	if (!vrf_is_backend_fib())
-		strlcpy(vrf->data.l.netns_name,
-			name, NS_NAMSIZ);
+		if (!vrf_is_backend_fib()) {
+			strlcpy(vrf->data.l.netns_name,
+				name, NS_NAMSIZ);
 		strlcpy(vrf->name, name, sizeof(vrf->name));
 		RB_INSERT(vrf_name_head, &vrfs_by_name, vrf);
 	} else if (name && vrf->name[0] == '\0') {
