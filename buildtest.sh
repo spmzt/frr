@@ -37,7 +37,7 @@ trap errfunc ERR
 
 COMMITREF="$1"
 COMMITISH="`git rev-list --max-count=1 ${COMMITREF:-HEAD}`"
-TEMP="`mktemp -t -d frrbuild.XXXXXX`"
+TEMP="`mktemp -d -t frrbuild.XXXXXX`"
 BASE="`pwd`"
 CONFIGS="$2"
 
@@ -59,7 +59,7 @@ echo -e "\n\n\n\n\033[33;1mmaking dist tarball\033[m"
 mkdir build_dist
 cd build_dist
 ../source/configure
-make distdir=sdist dist-gzip
+${MAKE:-make} distdir=sdist dist-gzip
 cd ..
 tar zxvf build_dist/sdist.tar.gz
 
