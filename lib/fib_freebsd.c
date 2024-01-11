@@ -139,6 +139,14 @@ static int fib_is_enabled(struct fib *fib)
 		return fib && fib->fib_id == 0;
 }
 
+/* Look up the data pointer of the specified Zebra VRF. */
+void *fib_info_lookup(fib_id_t fib_id)
+{
+	struct fib *fib = fib_lookup_internal(fib_id);
+
+	return fib ? fib->info : NULL;
+}
+
 int have_fib(void)
 {
 #ifdef __FreeBSD__
@@ -248,6 +256,7 @@ int fib_bind_if(vrf_id_t *vrf, const char *ifname)
 
 void fib_init_management(fib_id_t fib_id)
 {
+	fib_init();
 	default_fib = fib_get_created(NULL, NULL, fib_id);
 	if (!default_fib) {
 		flog_err(EC_LIB_FIB, "%s: failed to create the default FIB!",

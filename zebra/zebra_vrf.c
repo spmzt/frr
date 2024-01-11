@@ -96,14 +96,17 @@ static int zebra_vrf_new(struct vrf *vrf)
 		zlog_debug("VRF %s created, id %u", vrf->name, vrf->vrf_id);
 
 	zvrf = zebra_vrf_alloc(vrf);
-	if (!vrf_is_backend_netns())
+	if (vrf_is_backend_fib())
+		// TODO: What should I pass to the zebra_fib_lookup?
+		zvrf->zfib = zebra_fib_lookup(FIB_DEFAULT);
+	else if (!vrf_is_backend_netns())
 		zvrf->zns = zebra_ns_lookup(NS_DEFAULT);
 
 	otable_init(&zvrf->other_tables);
 
 	router_id_init(zvrf);
 
-	/* Initiate Table Manager per ZNS */
+	/* Initiate Table Manager per ZNS (TODO: What happens to ZFIB) */
 	table_manager_enable(zvrf);
 
 	return 0;
@@ -122,7 +125,9 @@ static int zebra_vrf_enable(struct vrf *vrf)
 		zlog_debug("VRF %s id %u is now active", zvrf_name(zvrf),
 			   zvrf_id(zvrf));
 
-	if (vrf_is_backend_netns())
+	if (vrf_is_backend_fib())
+		zvrf->zfib = zebra_fib_lookup((fib_id_t)vrf->vrf_data->freebsd->table_id);
+	else if (vrf_is_backend_netns())
 		zvrf->zns = zebra_ns_lookup((ns_id_t)vrf->vrf_id);
 	else
 		zvrf->zns = zebra_ns_lookup(NS_DEFAULT);
@@ -269,6 +274,11 @@ static int zebra_vrf_delete(struct vrf *vrf)
 	if (vrf->ns_ctxt) {
 		ns_delete(vrf->ns_ctxt);
 		vrf->ns_ctxt = NULL;
+	}
+
+	if (vrf->fib_ctxt) {
+		fib_delete(vrf->fib_ctxt);
+		vrf->fib_ctxt = NULL;
 	}
 
 	vrf->info = NULL;

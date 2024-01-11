@@ -36,6 +36,8 @@ extern void fib_init(void);
 
 extern int have_fib(void);
 
+extern void *fib_info_lookup(fib_id_t fib_id);
+
 extern void fib_init_management(fib_id_t fib_id);
 
 extern struct fib *fib_lookup(fib_id_t fib_id);

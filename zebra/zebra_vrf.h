@@ -10,6 +10,7 @@
 #include "vxlan.h"
 
 #include <zebra/zebra_ns.h>
+#include <zebra/zebra_fib.h>
 #include <zebra/zebra_pw.h>
 #include <zebra/rtadv.h>
 #include <lib/vxlan.h>
@@ -92,6 +93,9 @@ struct zebra_vrf {
 	 * Back pointer to the owning namespace.
 	 */
 	struct zebra_ns *zns;
+
+	struct zebra_fib *zfib;
+	
 
 	/* MPLS Label to handle L3VPN <-> vrf popping */
 	mpls_label_t label[AFI_MAX];
@@ -197,6 +201,13 @@ static inline vrf_id_t zvrf_id(struct zebra_vrf *zvrf)
 static inline const char *zvrf_ns_name(struct zebra_vrf *zvrf)
 {
 	if (!zvrf->vrf || !zvrf->vrf->ns_ctxt)
+		return NULL;
+	return ns_get_name((struct ns *)zvrf->vrf->ns_ctxt);
+}
+
+static inline const char *zvrf_fib_name(struct zebra_vrf *zvrf)
+{
+	if (!zvrf->vrf || !zvrf->vrf->fib_ctxt)
 		return NULL;
 	return ns_get_name((struct ns *)zvrf->vrf->ns_ctxt);
 }

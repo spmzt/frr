@@ -107,7 +107,7 @@ int vrf_switch_to_fib(vrf_id_t vrf_id)
 		return 1;	/* 1 = default */
 	/* VRF has no fib table. silently ignore */
 	if (vrf->data.freebsd.table_id == '\0')
-		return 2;	/* 2 = no netns */
+		return 2;	/* 2 = no fib */
 	fibnum = vrf->data.freebsd.table_id;
 	if (debug_vrf)
 		zlog_debug("VRF_SWITCH: %s(%u)", name, vrf->vrf_id);
@@ -182,10 +182,9 @@ struct vrf *vrf_get(vrf_id_t vrf_id, const char *name)
 	if (name && vrf->name[0] != '\0' && strcmp(name, vrf->name)) {
 		/* update the vrf name */
 		RB_REMOVE(vrf_name_head, &vrfs_by_name, vrf);
-#ifdef GNU_LINUX
+	if (!vrf_is_backend_fib())
 		strlcpy(vrf->data.l.netns_name,
 			name, NS_NAMSIZ);
-#endif
 		strlcpy(vrf->name, name, sizeof(vrf->name));
 		RB_INSERT(vrf_name_head, &vrfs_by_name, vrf);
 	} else if (name && vrf->name[0] == '\0') {
@@ -525,8 +524,7 @@ void vrf_init(int (*create)(struct vrf *), int (*enable)(struct vrf *),
 
 	/* initialise NS, in case VRF backend if NETNS */
 	ns_init();
-	/* initialise fib, in case VRF backend if FIB */
-	fib_init();
+
 	if (debug_vrf)
 		zlog_debug("%s: Initializing VRF subsystem", __func__);
 
@@ -550,6 +548,14 @@ void vrf_init(int (*create)(struct vrf *), int (*enable)(struct vrf *),
 		ns = ns_lookup(NS_DEFAULT);
 		ns->vrf_ctxt = default_vrf;
 		default_vrf->ns_ctxt = ns;
+	}
+	if (vrf_is_backend_fib()) {
+		struct fib *fib;
+		
+		fib = fib_lookup(FIB_DEFAULT);
+		fib->vrf_ctxt = default_vrf;
+		default_vrf->fib_ctxt = fib;
+		default_vrf->data.freebsd.table_id = fib->fib_id;
 	}
 
 	/* Enable the default VRF. */

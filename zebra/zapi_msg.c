@@ -96,16 +96,21 @@ static void zserv_encode_interface(struct stream *s, struct interface *ifp)
 static void zserv_encode_vrf(struct stream *s, struct zebra_vrf *zvrf)
 {
 	struct vrf_data data;
-	const char *netns_name = zvrf_ns_name(zvrf);
+	if (vrf_is_backend_fib()) {
+		const char *fib_name = zvrf_fib_name(zvrf);
+	} else {
+		const char *netns_name = zvrf_ns_name(zvrf);
 
-	memset(&data, 0, sizeof(data));
-	data.l.table_id = zvrf->table_id;
+		memset(&data, 0, sizeof(data));
+		data.l.table_id = zvrf->table_id;
 
-	if (netns_name)
-		strlcpy(data.l.netns_name, basename((char *)netns_name),
-			NS_NAMSIZ);
-	else
-		memset(data.l.netns_name, 0, NS_NAMSIZ);
+		if (netns_name)
+			strlcpy(data.l.netns_name, basename((char *)netns_name),
+				NS_NAMSIZ);
+		else
+			memset(data.l.netns_name, 0, NS_NAMSIZ);
+	}
+
 	/* Pass the tableid and the netns NAME */
 	stream_put(s, &data, sizeof(struct vrf_data));
 	/* Interface information. */

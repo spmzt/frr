@@ -83,6 +83,9 @@ struct vrf {
 	/* Back pointer to namespace context */
 	void *ns_ctxt;
 
+	/* Back pointer to fib context */
+	void *fib_ctxt;
+
 	QOBJ_FIELDS;
 };
 RB_HEAD(vrf_id_head, vrf);

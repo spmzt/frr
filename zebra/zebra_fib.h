@@ -24,4 +24,6 @@ int zebra_ns_init(void);
 
 int zebra_fib_enable(fib_id_t fib_id, void **info);
 
+struct zebra_fib *zebra_fib_lookup(fib_id_t fib_id);
+
 #endif

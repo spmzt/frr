@@ -23,6 +23,15 @@ DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_FIB, "Zebra FIB");
 
 static struct zebra_fib *dzfib;
 
+struct zebra_fib *zebra_fib_lookup(fib_id_t fib_id)
+{
+	if (fib_id == FIB_DEFAULT)
+		return dzfib;
+	struct zebra_fib *info = (struct zebra_fib *)fib_info_lookup(fib_id);
+
+	return (info == NULL) ? dzfib : info;
+}
+
 static int zebra_fib_new(struct fib *fib)
 {
 	struct zebra_fib *zfib;
@@ -30,7 +39,7 @@ static int zebra_fib_new(struct fib *fib)
 		return -1;
 
 	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_info("ZNS %s with id %u (created)", fib->name, fib->fib_id);
+		zlog_info("ZFIB %s with id %u (created)", fib->name, fib->fib_id);
 
 	zfib = XCALLOC(MTYPE_ZEBRA_FIB, sizeof(struct zebra_fib));
 	fib->info = zfib;
@@ -64,8 +73,6 @@ int zebra_fib_init(void)
 	fib_id_t fib_id;
 	struct fib *fib;
 
-	fib_init();
-
     fib_id = FIB_DEFAULT;
     fib_init_management(fib_id);
 
@@ -76,7 +83,7 @@ int zebra_fib_init(void)
 		exit(EXIT_FAILURE); /* This is non-recoverable */
 	}
 
-	// /* Do any needed per-NS data structure allocation. */
+	// /* Do any needed per-fib data structure allocation. */
 	zebra_fib_new(default_fib);
 	dzfib = default_fib->info;
 
