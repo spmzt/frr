@@ -128,4 +128,63 @@ void interface_list(struct zebra_ns *zns)
 	XFREE(MTYPE_TMP, ref);
 }
 
+/* Interface listing up function using sysctl(). */
+void interface_list_fib(struct zebra_fib *zfib)
+{
+	caddr_t ref, buf, end;
+	size_t bufsiz;
+	struct if_msghdr *ifm;
+
+#define MIBSIZ 6
+	int mib[MIBSIZ] = {
+		CTL_NET,       PF_ROUTE, 0, 0, /*  AF_INET & AF_INET6 */
+		NET_RT_IFLIST, 0};
+
+	if (zfib->fib_id != FIB_DEFAULT) {
+		zlog_debug("%s: ignore FIB %u", __func__, zfib->fib_id);
+		return;
+	}
+
+	/* Query buffer size. */
+	if (sysctl(mib, MIBSIZ, NULL, &bufsiz, NULL, 0) < 0) {
+		flog_err_sys(EC_ZEBRA_IFLIST_FAILED,
+			     "Could not enumerate interfaces: %s",
+			     safe_strerror(errno));
+		return;
+	}
+
+	/* We free this memory at the end of this function. */
+	ref = buf = XMALLOC(MTYPE_TMP, bufsiz);
+
+	/* Fetch interface information into allocated buffer. */
+	if (sysctl(mib, MIBSIZ, buf, &bufsiz, NULL, 0) < 0) {
+		flog_err_sys(EC_ZEBRA_IFLIST_FAILED,
+			     "Could not enumerate interfaces: %s",
+			     safe_strerror(errno));
+		return;
+	}
+
+	/* Parse both interfaces and addresses. */
+	for (end = buf + bufsiz; buf < end; buf += ifm->ifm_msglen) {
+		ifm = (struct if_msghdr *)buf;
+
+		switch (ifm->ifm_type) {
+		case RTM_IFINFO:
+			ifm_read(ifm);
+			break;
+		case RTM_NEWADDR:
+			ifam_read((struct ifa_msghdr *)ifm);
+			break;
+		default:
+			zlog_info("%s: unexpected message type", __func__);
+			XFREE(MTYPE_TMP, ref);
+			return;
+			break;
+		}
+	}
+
+	/* Free sysctl buffer. */
+	XFREE(MTYPE_TMP, ref);
+}
+
 #endif /* !defined(GNU_LINUX) && !defined(OPEN_BSD) */

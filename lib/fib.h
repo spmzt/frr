@@ -57,6 +57,8 @@ extern void fib_delete(struct fib *fib);
 
 extern void fib_disable(struct fib *fib);
 
+extern int fib_socket(int domain, int type, int protocol, fib_id_t fib_id);
+
 extern struct fib *fib_get_created(struct fib *fib, fib_id_t fib_id);
 
 #endif /*_LIB_FIB_H*/

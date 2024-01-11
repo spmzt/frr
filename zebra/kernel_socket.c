@@ -1464,6 +1464,67 @@ static void routing_socket(struct zebra_ns *zns)
 	event_add_read(zrouter.master, kernel_read, NULL, routing_sock, NULL);
 }
 
+/* Make routing socket. */
+static void routing_fib_socket(struct zebra_fib *zfib)
+{
+	uint32_t default_rcvbuf;
+	socklen_t optlen;
+
+	frr_with_privs(&zserv_privs) {
+		routing_sock = fib_socket(AF_ROUTE, SOCK_RAW, 0, zfib->fib_id);
+
+		dplane_routing_sock =
+			fib_socket(AF_ROUTE, SOCK_RAW, 0, zfib->fib_id);
+	}
+
+	if (routing_sock < 0) {
+		flog_err_sys(EC_LIB_SOCKET, "Can't init kernel routing socket");
+		return;
+	}
+
+	if (dplane_routing_sock < 0) {
+		flog_err_sys(EC_LIB_SOCKET,
+			     "Can't init kernel dataplane routing socket");
+		return;
+	}
+
+#ifdef SO_RERROR
+	/* Allow reporting of route(4) buffer overflow errors */
+	int n = 1;
+
+	if (setsockopt(routing_sock, SOL_SOCKET, SO_RERROR, &n, sizeof(n)) < 0)
+		flog_err_sys(EC_LIB_SOCKET,
+			     "Can't set SO_RERROR on routing socket");
+#endif
+
+	/* XXX: Socket should be NONBLOCK, however as we currently
+	 * discard failed writes, this will lead to inconsistencies.
+	 * For now, socket must be blocking.
+	 */
+	/*if (fcntl (routing_sock, F_SETFL, O_NONBLOCK) < 0)
+	  zlog_warn ("Can't set O_NONBLOCK to routing socket");*/
+
+	/*
+	 * Attempt to set a more useful receive buffer size
+	 */
+	optlen = sizeof(default_rcvbuf);
+	if (getsockopt(routing_sock, SOL_SOCKET, SO_RCVBUF, &default_rcvbuf,
+		       &optlen) == -1)
+		flog_err_sys(EC_LIB_SOCKET,
+			     "routing_sock sockopt SOL_SOCKET SO_RCVBUF");
+	else {
+		for (; rcvbufsize > default_rcvbuf &&
+		       setsockopt(routing_sock, SOL_SOCKET, SO_RCVBUF,
+				  &rcvbufsize, sizeof(rcvbufsize)) == -1 &&
+		       errno == ENOBUFS;
+		     rcvbufsize /= 2)
+			;
+	}
+
+	/* kernel_read needs rewrite. */
+	event_add_read(zrouter.master, kernel_read, NULL, routing_sock, NULL);
+}
+
 void interface_list_second(struct zebra_ns *zns)
 {
 }
@@ -1479,7 +1540,19 @@ void kernel_init(struct zebra_ns *zns)
 	routing_socket(zns);
 }
 
+/* Exported interface function.  This function simply calls
+   routing_socket (). */
+void kernel_fib_init(struct zebra_fib *zfib)
+{
+	routing_fib_socket(zfib);
+}
+
 void kernel_terminate(struct zebra_ns *zns, bool complete)
+{
+	return;
+}
+
+void kernel_fib_terminate(struct zebra_fib *zfib, bool complete)
 {
 	return;
 }

@@ -13,6 +13,7 @@
 #include "vxlan.h"
 #include "zebra/rib.h"
 #include "zebra/zebra_ns.h"
+#include "zebra/zebra_fib.h"
 #include "zebra/zebra_mpls.h"
 #include "zebra/zebra_dplane.h"
 
@@ -85,10 +86,13 @@ extern int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *mroute);
  * state.
  */
 extern void interface_list(struct zebra_ns *zns);
+extern void interface_list_fib(struct zebra_fib *zfib);
 extern void interface_list_tunneldump(struct zebra_ns *zns);
 extern void interface_list_second(struct zebra_ns *zns);
 extern void kernel_init(struct zebra_ns *zns);
+extern void kernel_fib_init(struct zebra_fib *zfib);
 extern void kernel_terminate(struct zebra_ns *zns, bool complete);
+extern void kernel_fib_terminate(struct zebra_fib *zfib, bool complete);
 extern void macfdb_read(struct zebra_ns *zns);
 extern void macfdb_read_for_bridge(struct zebra_ns *zns, struct interface *ifp,
 				   struct interface *br_if, vlanid_t vid);

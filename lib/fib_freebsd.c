@@ -185,7 +185,7 @@ void fib_disable(struct fib *fib)
 
 int have_fib(void)
 {
-#ifdef __FreeBSD__
+#ifdef __FreeBSD__ && SO_SETFIB
     return 1;
 #else
 	return 0;
@@ -246,6 +246,32 @@ int fib_switchback_to_initial(void)
     }
 	/* silently ignore if fib is not initialised */
     return 1;
+}
+
+/* Create a socket for the FIB. */
+int fib_socket(int domain, int type, int protocol, fib_id_t fib_id)
+{
+	struct fib *fib = fib_lookup(fib_id);
+	int ret;
+
+	if (!fib || !fib_is_enabled(fib)) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	ret = socket(domain, type, protocol);
+	if (have_fib()) {
+		if (fib_id != FIB_DEFAULT) {
+			if(setsockopt(ret, SOL_SOCKET, SO_SETFIB, fib_id,
+							sizeof(fib_id)) == -1) {
+				flog_err_sys(EC_LIB_SOCKET,
+						"Can't set SO_SETFIB on socket %u: %s!", fib->fib_id,
+						safe_strerror(errno));
+				return -1;
+			}
+		}
+
+	return ret;
 }
 
 int fib_get_current_id(int *fib_id)

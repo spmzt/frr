@@ -59,10 +59,61 @@ int zebra_fib_enable(fib_id_t fib_id, void **info)
 
 	zfib->fib_id = fib_id;
 
-    // TODO
-	kernel_init(zfib);
-	zebra_dplane_ns_enable(zfib, true);
-	interface_list(zfib);
+	kernel_fib_init(zfib);
+	// TODO: zebra_dplane_fib_enable(zfib, true);
+	interface_list_fib(zfib);
+
+	return 0;
+}
+
+static int zebra_fib_delete(struct fib *fib)
+{
+	struct zebra_fib *zfib = (struct zebra_fib *)fib->info;
+
+	if (IS_ZEBRA_DEBUG_EVENT)
+		zlog_info("ZFIB with id %u (deleted)", fib->fib_id);
+	if (!zfib)
+		return 0;
+	XFREE(MTYPE_ZEBRA_FIB, fib->info);
+	return 0;
+}
+
+static int zebra_fib_enabled(struct fib *fib)
+{
+	struct zebra_fib *zfib = fib->info;
+
+	if (IS_ZEBRA_DEBUG_EVENT)
+		zlog_info("ZFIB id %u (enabled)", zfib->fib_id);
+	if (!zfib)
+		return 0;
+	return zebra_fib_enable(fib->fib_id, (void **)&zfib);
+}
+
+int zebra_fib_disabled(struct fib *fib)
+{
+	struct zebra_fib *zfib = fib->info;
+
+	if (IS_ZEBRA_DEBUG_EVENT)
+		zlog_info("ZFIB id %u (disabled)", zfib->fib_id);
+	if (!zfib)
+		return 0;
+	return zebra_fib_disable_internal(zfib, true);
+}
+
+/* Common handler for fib disable - this can be called during fib config,
+ * or during zebra shutdown.
+ */
+static int zebra_fib_disable_internal(struct zebra_fib *zfib, bool complete)
+{
+	if (zfib->if_table)
+		route_table_finish(zfib->if_table);
+	zfib->if_table = NULL;
+
+	// TODO: zebra_dplane_fib_enable(zfib, false /*Disable*/);
+
+	kernel_fib_terminate(zfib, complete);
+
+	zfib->fib_id = FIB_DEFAULT;
 
 	return 0;
 }
@@ -93,17 +144,15 @@ int zebra_fib_init(void)
 	// /* Default FIB is activated */
 	zebra_fib_enable(fib_id, (void **)&dzns);
 
-    // TODO
-	// if (vrf_is_backend_netns()) {
-	// 	ns_add_hook(NS_NEW_HOOK, zebra_ns_new);
-	// 	ns_add_hook(NS_ENABLE_HOOK, zebra_ns_enabled);
-	// 	ns_add_hook(NS_DISABLE_HOOK, zebra_ns_disabled);
-	// 	ns_add_hook(NS_DELETE_HOOK, zebra_ns_delete);
-	// 	zebra_ns_notify_parse();
-	// 	zebra_ns_notify_init();
-	// }
+	if (vrf_is_backend_fib()) {
+		ns_add_hook(FIB_NEW_HOOK, zebra_fib_new);
+		ns_add_hook(FIB_ENABLE_HOOK, zebra_fib_enabled);
+		ns_add_hook(FIB_DISABLE_HOOK, zebra_fib_disabled);
+		ns_add_hook(FIB_DELETE_HOOK, zebra_fib_delete);
+		// TODO: should I implement fib_notify?
+	}
 
-	// return 0;
+	return 0;
 }
 
 int zebra_fib_config_write(struct vty *vty, struct fib *fib)
