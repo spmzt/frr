@@ -305,16 +305,16 @@ int fib_set_current_max(fib_id_t fib_newmax)
     return ret;
 }
 
-int fib_bind_if(vrf *vrf, const char *ifname)
+int fib_bind_if(fib_id_t fib_id, const char *ifname)
 {
 	struct ifreq ifr = {};
 	strlcpy(ifr.ifr_name, ifname, sizeof(ifname));
-	ifr.ifr_fib = vrf.data.freebsd.table_id;
+	ifr.ifr_fib = fib_id;
 	int sock = socket(PF_INET, SOCK_STREAM, 0);
 	ret = ioctl(sock, SIOCSIFFIB, &ifr);
 	if (ret < 0)
-		zlog_err("bind to fib %d failed, errno=%d",
-			 vrf.data.freebsd.table_id, errno);
+		zlog_err("bind to fib %u failed, errno=%d",
+			 fib_id, errno);
     return ret;
 }
 
