@@ -184,7 +184,7 @@ struct vrf *vrf_get(vrf_id_t vrf_id, const char *name)
 	if (name && vrf->name[0] != '\0' && strcmp(name, vrf->name)) {
 		/* update the vrf name */
 		RB_REMOVE(vrf_name_head, &vrfs_by_name, vrf);
-		if (!vrf_is_backend_fib()) {
+		if (!vrf_is_backend_fib())
 			strlcpy(vrf->data.l.netns_name,
 				name, NS_NAMSIZ);
 		strlcpy(vrf->name, name, sizeof(vrf->name));
