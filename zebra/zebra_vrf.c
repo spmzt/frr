@@ -126,6 +126,7 @@ static int zebra_vrf_enable(struct vrf *vrf)
 			   zvrf_id(zvrf));
 
 	if (vrf_is_backend_fib())
+		// TODO: Only Tested for default allocation
 		zvrf->zfib = zebra_fib_lookup((fib_id_t)vrf->vrf_data->freebsd->table_id);
 	else if (vrf_is_backend_netns())
 		zvrf->zns = zebra_ns_lookup((ns_id_t)vrf->vrf_id);
@@ -507,6 +508,7 @@ static int vrf_config_write(struct vty *vty)
 						? " prefix-routes-only"
 						: "");
 			zebra_ns_config_write(vty, (struct ns *)vrf->ns_ctxt);
+			zebra_fib_config_write(vty, (struct fib *)vrf->fib_ctxt);
 			if (zvrf->zebra_rnh_ip_default_route !=
 			    SAVE_ZEBRA_IP_NHT_RESOLVE_VIA_DEFAULT)
 				vty_out(vty, " %sip nht resolve-via-default\n",
@@ -595,60 +597,56 @@ DEFUN (no_vrf_netns,
 	return CMD_SUCCESS;
 }
 
-// DEFPY (vrf_fib,
-//        vrf_fib_cmd,
-//        "fib id$fib_id",
-//        "Attach VRF to a Namespace\n"
-//        "The file name in " NS_RUN_DIR ", or a full pathname\n")
-// {
-// 	char *pathname = ns_netns_pathname(vty, fib_id);
-// 	int ret;
+DEFPY (vrf_fib,
+       vrf_fib_cmd,
+       "fib id$fib_id",
+       "Attach VRF to a FIB\n"
+       "FIB ID\n")
+{
+	int ret;
 
-// 	VTY_DECLVAR_CONTEXT(vrf, vrf);
+	VTY_DECLVAR_CONTEXT(vrf, vrf);
 
-// 	if (!pathname)
-// 		return CMD_WARNING_CONFIG_FAILED;
+	frr_with_privs(&zserv_privs) {
+		ret = zebra_vrf_fib_handler_create(
+			vty, vrf, fib_id);
+	}
 
-// 	frr_with_privs(&zserv_privs) {
-// 		ret = zebra_vrf_netns_handler_create(
-// 			vty, vrf, pathname, NS_UNKNOWN, NS_UNKNOWN, NS_UNKNOWN);
-// 	}
+	return ret;
+}
 
-// 	return ret;
-// }
+DEFUN (no_vrf_fib,
+       no_vrf_fib_cmd,
+       "no fib [ID]",
+       NO_STR
+       "Detach VRF from a FIB\n"
+       "FIB ID\n")
+{
+	struct fib *fib = NULL;
 
-// DEFUN (no_vrf_netns,
-//        no_vrf_netns_cmd,
-//        "no netns [NAME]",
-//        NO_STR
-//        "Detach VRF from a Namespace\n"
-//        "The file name in " NS_RUN_DIR ", or a full pathname\n")
-// {
-// 	struct ns *ns = NULL;
+	VTY_DECLVAR_CONTEXT(vrf, vrf);
 
-// 	VTY_DECLVAR_CONTEXT(vrf, vrf);
+	if (!vrf_is_backend_fib()) {
+		vty_out(vty, "VRF backend is not FIB. Aborting\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	if (!vrf->fib_ctxt) {
+		vty_out(vty, "VRF %s(%u) is not configured with FIB\n",
+			vrf->name, vrf->vrf_id);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
-// 	if (!vrf_is_backend_netns()) {
-// 		vty_out(vty, "VRF backend is not Netns. Aborting\n");
-// 		return CMD_WARNING_CONFIG_FAILED;
-// 	}
-// 	if (!vrf->ns_ctxt) {
-// 		vty_out(vty, "VRF %s(%u) is not configured with NetNS\n",
-// 			vrf->name, vrf->vrf_id);
-// 		return CMD_WARNING_CONFIG_FAILED;
-// 	}
+	fib = (struct fib *)vrf->fib_ctxt;
 
-// 	ns = (struct ns *)vrf->ns_ctxt;
-
-// 	ns->vrf_ctxt = NULL;
-// 	vrf_disable(vrf);
-// 	/* vrf ID from VRF is necessary for Zebra
-// 	 * so that propagate to other clients is done
-// 	 */
-// 	ns_delete(ns);
-// 	vrf->ns_ctxt = NULL;
-// 	return CMD_SUCCESS;
-// }
+	fib->vrf_ctxt = NULL;
+	vrf_disable(vrf);
+	/* vrf ID from VRF is necessary for Zebra
+	 * so that propagate to other clients is done
+	 */
+	fib_delete(fib);
+	vrf->fib_ctxt = NULL;
+	return CMD_SUCCESS;
+}
 
 /* if ns_id is different and not VRF_UNKNOWN,
  * then update vrf identifier, and enable VRF
@@ -656,6 +654,28 @@ DEFUN (no_vrf_netns,
 static void vrf_update_vrf_id(ns_id_t ns_id, void *opaqueptr)
 {
 	ns_id_t vrf_id = (vrf_id_t)ns_id;
+	vrf_id_t old_vrf_id;
+	struct vrf *vrf = (struct vrf *)opaqueptr;
+
+	if (!vrf)
+		return;
+	old_vrf_id = vrf->vrf_id;
+	if (vrf_id == vrf->vrf_id)
+		return;
+	if (vrf->vrf_id != VRF_UNKNOWN)
+		RB_REMOVE(vrf_id_head, &vrfs_by_id, vrf);
+	vrf->vrf_id = vrf_id;
+	RB_INSERT(vrf_id_head, &vrfs_by_id, vrf);
+	if (old_vrf_id == VRF_UNKNOWN)
+		vrf_enable(vrf);
+}
+
+/* if fib_id is different and not VRF_UNKNOWN,
+ * then update vrf identifier, and enable VRF
+ */
+static void vrf_update_vrf_id_by_fib_id(fib_id_t fib_id, void *opaqueptr)
+{
+	vrf_id_t vrf_id = (vrf_id_t)fib_id;
 	vrf_id_t old_vrf_id;
 	struct vrf *vrf = (struct vrf *)opaqueptr;
 
@@ -741,6 +761,71 @@ int zebra_vrf_netns_handler_create(struct vty *vty, struct vrf *vrf,
 	return CMD_SUCCESS;
 }
 
+int zebra_vrf_fib_handler_create(struct vty *vty, struct vrf *vrf,
+				   fib_id_t fib_id)
+{
+	struct fib *fib = NULL;
+
+	if (!vrf)
+		return CMD_WARNING_CONFIG_FAILED;
+	if (vrf->vrf_id != VRF_UNKNOWN && vrf->fib_ctxt == NULL) {
+		if (vty)
+			vty_out(vty,
+				"VRF %u is already configured with VRF %s\n",
+				vrf->vrf_id, vrf->name);
+		else
+			zlog_info("VRF %u is already configured with VRF %s",
+				  vrf->vrf_id, vrf->name);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	if (vrf->fib_ctxt != NULL) {
+		fib = (struct fib *)vrf->fib_ctxt;
+		if (fib->fib_id != fib_id) {
+			if (vty)
+				vty_out(vty,
+					"VRF %u already configured with FIB %d\n",
+					vrf->vrf_id, fib->fib_id);
+			else
+				zlog_info(
+					"VRF %u already configured with FIB %d",
+					vrf->vrf_id, fib->fib_id);
+			return CMD_WARNING;
+		}
+	}
+	fib = fib_lookup(fib_id);
+	if (fib && fib->vrf_ctxt) {
+		struct vrf *vrf2 = (struct vrf *)fib->vrf_ctxt;
+
+		if (vrf2 == vrf)
+			return CMD_SUCCESS;
+		if (vty)
+			vty_out(vty,
+				"FIB %d is already configured with VRF %u(%s)\n",
+				fib->fib_id, vrf2->vrf_id, vrf2->name);
+		else
+			zlog_info("FIB %d is already configured with VRF %u(%s)",
+				  fib->fib_id, vrf2->vrf_id, vrf2->name);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	fib = fib_get_created(fib, fib_id);
+	fib->vrf_ctxt = (void *)vrf;
+	vrf->fib_ctxt = (void *)fib;
+	/* update VRF fib id */
+	vrf->data.freebsd.table_id = fib->fib_id;
+
+	if (!fib_enable(fib, vrf_update_vrf_id_by_fib_id)) {
+		if (vty)
+			vty_out(vty, "Can not associate FIB %d with this VRF\n",
+				fib->fib_id);
+		else
+			zlog_info("Can not associate FIB %u with this VRF",
+				  fib->fib_id);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	return CMD_SUCCESS;
+}
+
 /* Zebra VRF initialization. */
 void zebra_vrf_init(void)
 {
@@ -756,9 +841,9 @@ void zebra_vrf_init(void)
 		install_element(VRF_NODE, &vrf_netns_cmd);
 		install_element(VRF_NODE, &no_vrf_netns_cmd);
 	}
-	// if (vrf_is_backend_fib() && have_fib()) {
-	// 	/* Install FIB commands. */
-	// 	install_element(VRF_NODE, &vrf_fib_cmd);
-	// 	install_element(VRF_NODE, &no_vrf_fib_cmd);
-	// }
+	if (vrf_is_backend_fib() && have_fib()) {
+		/* Install FIB commands. */
+		install_element(VRF_NODE, &vrf_fib_cmd);
+		install_element(VRF_NODE, &no_vrf_fib_cmd);
+	}
 }

@@ -329,6 +329,9 @@ int main(int argc, char **argv)
 #ifdef HAVE_NETLINK
 		    "n"
 #endif
+#ifdef __FreeBSD__
+		    "f"
+#endif
 		    ,
 		    longopts,
 		    "  -b, --batch               Runs in batch mode\n"
@@ -339,10 +342,12 @@ int main(int argc, char **argv)
 		    "  -K, --graceful_restart    Graceful restart at the kernel level, timer in seconds for expiration\n"
 		    "  -A, --asic-offload        FRR is interacting with an asic underneath the linux kernel\n"
 		    "      --v6-with-v4-nexthops Underlying dataplane supports v6 routes with v4 nexthops"
+#ifdef __FreeBSD__
+		    "  -f, --vrffib              Use FIB as VRF backend\n"
+#endif /* __FreeBSD__ */
 #ifdef HAVE_NETLINK
 		    "  -s, --nl-bufsize          Set netlink receive buffer size\n"
 		    "  -n, --vrfwnetns           Use NetNS as VRF backend\n"
-		    "  -f, --vrffib              Use FIB as VRF backend\n"
 		    "      --v6-rr-semantics     Use v6 RR semantics\n"
 #else
 		    "  -s,                       Set kernel socket receive buffer size\n"
@@ -409,9 +414,6 @@ int main(int argc, char **argv)
 		case 'n':
 			vrf_configure_backend(VRF_BACKEND_NETNS);
 			break;
-		case 'f':
-			vrf_configure_backend(VRF_BACKEND_FIB);
-			break;
 		case OPTION_V6_RR_SEMANTICS:
 			zrouter.v6_rr_semantics = true;
 			break;
@@ -426,6 +428,15 @@ int main(int argc, char **argv)
 			v6_with_v4_nexthop = true;
 			break;
 #endif /* HAVE_NETLINK */
+#ifdef __FreeBSD__
+		case 'f':
+			if (vrf_is_backend_netns()) {
+				fprintf(stderr, "Can't use '-f' with '-n'\n");
+				exit(1);
+			}
+			vrf_configure_backend(VRF_BACKEND_FIB);
+			break;
+#endif /* __FreeBSD__ */
 		default:
 			frr_help_exit(1);
 		}
@@ -441,14 +452,12 @@ int main(int argc, char **argv)
 	zebra_debug_init();
 
 	/*
-	 * Initialize NS( and implicitly the VRF module), and make kernel
+	 * Initialize FIB or NS (and implicitly the VRF module), and make kernel
 	 * routing socket. */
-#ifdef __FreeBSD__
 	if (vrf_is_backend_fib())
 		zebra_fib_init();
 	else
-#endif
-	zebra_ns_init();
+		zebra_ns_init();
 	router_id_cmd_init();
 	zebra_vty_init();
 	mgmt_be_client = mgmt_be_client_create("zebra", NULL, 0,

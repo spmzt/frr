@@ -105,3 +105,10 @@ int zebra_fib_init(void)
 
 	// return 0;
 }
+
+int zebra_fib_config_write(struct vty *vty, struct fib *fib)
+{
+	if (fib && fib->fib_id != NULL)
+		vty_out(vty, " fib %d\n", fib->fib_id);
+	return 0;
+}

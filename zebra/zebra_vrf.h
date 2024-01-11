@@ -56,7 +56,7 @@ struct zebra_vrf {
 	/* Description.  */
 	char *desc;
 
-	/* FIB identifier.  */
+	/* FIB identifier.  */ // TODO: Who uses this?
 	uint8_t fib_id;
 
 	/* Flags. */
@@ -64,6 +64,7 @@ struct zebra_vrf {
 #define ZEBRA_VRF_RETAIN          (1 << 0)
 #define ZEBRA_PIM_SEND_VXLAN_SG   (1 << 1)
 
+	// TODO: Who uses this?
 	uint32_t table_id;
 
 	/* Routing table.  */
@@ -205,13 +206,6 @@ static inline const char *zvrf_ns_name(struct zebra_vrf *zvrf)
 	return ns_get_name((struct ns *)zvrf->vrf->ns_ctxt);
 }
 
-static inline const char *zvrf_fib_name(struct zebra_vrf *zvrf)
-{
-	if (!zvrf->vrf || !zvrf->vrf->fib_ctxt)
-		return NULL;
-	return ns_get_name((struct ns *)zvrf->vrf->ns_ctxt);
-}
-
 static inline const char *zvrf_name(struct zebra_vrf *zvrf)
 {
 	if (!zvrf || !zvrf->vrf)
@@ -265,6 +259,13 @@ extern struct route_table *zebra_vrf_table(afi_t, safi_t, vrf_id_t);
 extern int zebra_vrf_netns_handler_create(struct vty *vty, struct vrf *vrf,
 					  char *pathname, ns_id_t ext_ns_id,
 					  ns_id_t ns_id, ns_id_t rel_def_ns_id);
+
+/*
+ * API to associate a VRF with a FIB ID.
+ * Called either from vty or through discovery.
+ */
+extern int zebra_vrf_fib_handler_create(struct vty *vty, struct vrf *vrf,
+				   fib_id_t fib_id)
 
 extern void zebra_vrf_init(void);
 

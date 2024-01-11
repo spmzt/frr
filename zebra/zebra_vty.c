@@ -52,6 +52,8 @@
 #include "zebra/rtadv.h"
 #include "zebra/zebra_neigh.h"
 
+// TODO: add/modify show commands for fib
+
 /* context to manage dumps in multiple tables or vrfs */
 struct route_show_ctx {
 	bool multi;       /* dump multiple tables or vrf */
@@ -2648,6 +2650,9 @@ DEFUN (show_vrf,
 
 	if (vrf_is_backend_netns())
 		vty_out(vty, "netns-based vrfs\n");
+
+	if (vrf_is_backend_fib())
+		vty_out(vty, "fib-based vrfs\n");
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		if (!(zvrf = vrf->info))

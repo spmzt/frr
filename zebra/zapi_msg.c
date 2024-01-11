@@ -96,12 +96,14 @@ static void zserv_encode_interface(struct stream *s, struct interface *ifp)
 static void zserv_encode_vrf(struct stream *s, struct zebra_vrf *zvrf)
 {
 	struct vrf_data data;
-	if (vrf_is_backend_fib()) {
-		const char *fib_name = zvrf_fib_name(zvrf);
-	} else {
+
+	memset(&data, 0, sizeof(data));
+
+	if (vrf_is_backend_fib())
+		data.freebsd.table_id = zvrf->table_id;
+	else {
 		const char *netns_name = zvrf_ns_name(zvrf);
 
-		memset(&data, 0, sizeof(data));
 		data.l.table_id = zvrf->table_id;
 
 		if (netns_name)
@@ -114,7 +116,8 @@ static void zserv_encode_vrf(struct stream *s, struct zebra_vrf *zvrf)
 	/* Pass the tableid and the netns NAME */
 	stream_put(s, &data, sizeof(struct vrf_data));
 	/* Interface information. */
-	stream_put(s, zvrf_name(zvrf), VRF_NAMSIZ);
+	if (!vrf_is_backend_fib())
+		stream_put(s, zvrf_name(zvrf), VRF_NAMSIZ);
 	/* Write packet size. */
 	stream_putw_at(s, 0, stream_get_endp(s));
 }

@@ -10,7 +10,6 @@
 
 DEFINE_MTYPE_STATIC(LIB, FIB, "FIB Context");
 DEFINE_MTYPE_STATIC(LIB, FIB_ID, "FIB ID");
-DEFINE_MTYPE_STATIC(LIB, FIB_NAME, "FIB NAME");
 
 #define MAXFIB 65536;
 
@@ -51,36 +50,45 @@ struct fib *fib_lookup(fib_id_t fib_id)
 	return fib_lookup_internal(fib_id);
 }
 
-/* Look up a FIB by name */
-static struct fib *fib_lookup_name_internal(const char *name)
+/*
+ * Disable a FIB - that is, let the FIB be unusable.
+ * The FIB_DELETE_HOOK callback will be called to inform
+ * that they must release the resources in the FIB.
+ */
+static void fib_disable_internal(struct fib *fib)
 {
-	struct fib *fib = NULL;
+	if (fib_is_enabled(fib)) {
+		if (fib_debug)
+			zlog_info("FIB %d is to be disabled.", fib->fib_id);
 
-	RB_FOREACH (fib, fib_head, &fib_tree) {
-		if (fib->name != NULL) {
-			if (strcmp(name, fib->name) == 0)
-				return fib;
-		}
+		if (fib_master.fib_disable_hook)
+			(*fib_master.fib_disable_hook)(fib);
+
+		// TODO: Should I clear the FIB table?
 	}
-	return NULL;
 }
 
-static struct fib *fib_get_created(struct fib *fib, char *name,
-					  fib_id_t fib_id)
+struct fib *fib_get_created(struct fib *fib, fib_id_t fib_id)
+{
+	return fib_get_created(fib, fib_id)
+}
+
+int fib_enable(struct fib *fib, void (*func)(fib_id_t, void *))
+{
+	return fib_enable_internal(fib, func);
+}
+
+static struct fib *fib_get_created_internal(struct fib *fib, fib_id_t fib_id)
 {
 	int created = 0;
 	/*
 	 * Initialize interfaces.
 	 */
-	if (!fib && !name && fib_id == FIB_DEFAULT)
+	if (!fib && fib_id == FIB_DEFAULT)
 		fib = fib_lookup_internal(fib_id);
-	if (!fib && name)
-		fib = fib_lookup_name_internal(name);
 	if (!fib) {
 		fib = XCALLOC(MTYPE_FIB, sizeof(struct fib));
 		fib->fib_id = fib_id;
-		if (name)
-			fib->name = XSTRDUP(MTYPE_FIB_NAME, name);
 		RB_INSERT(fib_head, &fib_tree, fib);
 		created = 1;
 	}
@@ -99,7 +107,7 @@ static struct fib *fib_get_created(struct fib *fib, char *name,
 	return fib;
 }
 
-static int fib_enable(struct fib *fib, void (*func)(fib_id_t, void *))
+static int fib_enable_internal(struct fib *fib, void (*func)(fib_id_t, void *))
 {
 	if (!fib_is_enabled(fib)) {
 		if (have_fib()) {
@@ -139,12 +147,40 @@ static int fib_is_enabled(struct fib *fib)
 		return fib && fib->fib_id == 0;
 }
 
+/* Delete a FIB. This is called in ns_terminate(). */
+void fib_delete(struct fib *fib)
+{
+	if (fib_debug)
+		zlog_info("FIB %d is to be deleted.", fib->fib_id);
+
+	fib_disable(fib);
+
+	if (fib_master.fib_delete_hook)
+		(*fib_master.fib_delete_hook)(fib);
+
+	/*
+	 * I'm not entirely sure if the vrf->iflist
+	 * needs to be moved into here or not.
+	 */
+	// if_terminate (&fib->iflist);
+
+	RB_REMOVE(fib_head, &fib_tree, fib);
+	XFREE(MTYPE_FIB_ID, fib->fib_id);
+
+	XFREE(MTYPE_FIB, fib);
+}
+
 /* Look up the data pointer of the specified Zebra VRF. */
 void *fib_info_lookup(fib_id_t fib_id)
 {
 	struct fib *fib = fib_lookup_internal(fib_id);
 
 	return fib ? fib->info : NULL;
+}
+
+void fib_disable(struct fib *fib)
+{
+	fib_disable_internal(fib);
 }
 
 int have_fib(void)
@@ -228,6 +264,8 @@ int fib_get_current_max(void)
 
 int fib_set_current_max(int *fib_newmax)
 {
+	if (*fib_newmax <= fib_current_max)
+		return 0;
     int ret;
     size_t newlen;
     newlen = sizeof(fib_newmax);
@@ -257,15 +295,12 @@ int fib_bind_if(vrf_id_t *vrf, const char *ifname)
 void fib_init_management(fib_id_t fib_id)
 {
 	fib_init();
-	default_fib = fib_get_created(NULL, NULL, fib_id);
+	default_fib = fib_get_created(NULL, fib_id);
 	if (!default_fib) {
 		flog_err(EC_LIB_FIB, "%s: failed to create the default FIB!",
 			 __func__);
 		exit(1);
 	}
-
-	/* Set the default NS name. */
-	default_fib->name = XSTRDUP(MTYPE_FIB_NAME, FIB_DEFAULT_NAME);
 
 	/* Enable the default FIB. */
 	if (!fib_enable(default_fib, NULL)) {
