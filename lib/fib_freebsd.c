@@ -237,10 +237,10 @@ void fib_init(void)
 	if (fib_initialised == 1)
 		return;
 	errno = 0;
-	if (have_fib())
+	if (have_fib()) {
 		fib_get_current_id(&fib_current_id);
         fib_get_current_max();
-	else {
+	} else {
 		fib_current_id = -1;
 		fib_current_max = 0;
 	}
