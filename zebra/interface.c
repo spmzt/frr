@@ -22,7 +22,7 @@
 
 #include "zebra/rtadv.h"
 #include "zebra_ns.h"
-#include "zebra/fib.h"
+#include "zebra_fib.h"
 #include "zebra_vrf.h"
 #include "zebra/interface.h"
 #include "zebra/rib.h"
