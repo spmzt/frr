@@ -122,7 +122,6 @@ int zebra_fib_init(void)
 {
 	struct fib *default_fib;
 	fib_id_t fib_id;
-	struct fib *fib;
 
     fib_id = FIB_DEFAULT;
     fib_init_management(fib_id);
@@ -157,7 +156,7 @@ int zebra_fib_init(void)
 
 int zebra_fib_config_write(struct vty *vty, struct fib *fib)
 {
-	if (fib && fib->fib_id != NULL)
+	if (fib)
 		vty_out(vty, " fib %d\n", fib->fib_id);
 	return 0;
 }
