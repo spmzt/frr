@@ -5,10 +5,14 @@
 #include "linklist.h"
 #include "vty.h"
 
-/* the default FIB ID */
-#define FIB_DEFAULT 0
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef uint16_t fib_id_t;
+
+/* the default FIB ID */
+#define FIB_DEFAULT 0
 
 struct fib {
 	RB_ENTRY(fib) entry;
@@ -60,5 +64,9 @@ extern void fib_disable(struct fib *fib);
 extern int fib_socket(int domain, int type, int protocol, fib_id_t fib_id);
 
 extern struct fib *fib_get_created(struct fib *fib, fib_id_t fib_id);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /*_LIB_FIB_H*/
