@@ -618,7 +618,7 @@ void if_add_update(struct interface *ifp)
 			zfib = zvrf->zfib;
 		else
 			zfib = zebra_fib_lookup(FIB_DEFAULT);
-		if_link_per_fib(zfib, ifp)
+		if_link_per_fib(zfib, ifp);
 	}
 	if_data = ifp->info;
 	assert(if_data);
