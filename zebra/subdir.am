@@ -66,6 +66,7 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_affinitymap.c \
 	zebra/zebra_dplane.c \
 	zebra/zebra_errors.c \
+	zebra/zebra_fib.c \
 	zebra/zebra_gr.c \
 	zebra/zebra_l2.c \
 	zebra/zebra_l2_bridge_if.c \
@@ -158,6 +159,7 @@ noinst_HEADERS += \
 	zebra/zebra_evpn_mac.h \
 	zebra/zebra_evpn_neigh.h \
 	zebra/zebra_evpn_vxlan.h \
+	zebra/zebra_fib.h \
 	zebra/zebra_fpm_private.h \
 	zebra/zebra_l2.h \
 	zebra/zebra_mlag.h \
