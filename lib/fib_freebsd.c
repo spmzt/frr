@@ -81,10 +81,10 @@ int have_fib(void)
 
 static int fib_is_enabled(struct fib *fib)
 {
-	if (have_fib())
+	if (have_fib()) {
 		fib_get_current_max();
 		return fib && fib->fib_id <= fib_current_max;
-	else
+	} else
 		return fib && fib->fib_id == 0;
 }
 
