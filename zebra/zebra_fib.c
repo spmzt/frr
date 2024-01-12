@@ -39,7 +39,7 @@ static int zebra_fib_new(struct fib *fib)
 		return -1;
 
 	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_info("ZFIB %s with id %u (created)", fib->name, fib->fib_id);
+		zlog_info("ZFIB with id %u (created)", fib->fib_id);
 
 	zfib = XCALLOC(MTYPE_ZEBRA_FIB, sizeof(struct zebra_fib));
 	fib->info = zfib;
@@ -89,17 +89,6 @@ static int zebra_fib_enabled(struct fib *fib)
 	return zebra_fib_enable(fib->fib_id, (void **)&zfib);
 }
 
-int zebra_fib_disabled(struct fib *fib)
-{
-	struct zebra_fib *zfib = fib->info;
-
-	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_info("ZFIB id %u (disabled)", zfib->fib_id);
-	if (!zfib)
-		return 0;
-	return zebra_fib_disable_internal(zfib, true);
-}
-
 /* Common handler for fib disable - this can be called during fib config,
  * or during zebra shutdown.
  */
@@ -118,6 +107,17 @@ static int zebra_fib_disable_internal(struct zebra_fib *zfib, bool complete)
 	return 0;
 }
 
+int zebra_fib_disabled(struct fib *fib)
+{
+	struct zebra_fib *zfib = fib->info;
+
+	if (IS_ZEBRA_DEBUG_EVENT)
+		zlog_info("ZFIB id %u (disabled)", zfib->fib_id);
+	if (!zfib)
+		return 0;
+	return zebra_fib_disable_internal(zfib, true);
+}
+
 int zebra_fib_init(void)
 {
 	struct fib *default_fib;
@@ -129,7 +129,7 @@ int zebra_fib_init(void)
 
 	default_fib = fib_lookup(FIB_DEFAULT);
 	if (!default_fib) {
-		flog_err(EC_ZEBRA_NS_NO_DEFAULT,
+		flog_err(EC_ZEBRA_FIB_NO_DEFAULT,
 			 "%s: failed to find default fib", __func__);
 		exit(EXIT_FAILURE); /* This is non-recoverable */
 	}
@@ -145,10 +145,10 @@ int zebra_fib_init(void)
 	zebra_fib_enable(fib_id, (void **)&dzns);
 
 	if (vrf_is_backend_fib()) {
-		ns_add_hook(FIB_NEW_HOOK, zebra_fib_new);
-		ns_add_hook(FIB_ENABLE_HOOK, zebra_fib_enabled);
-		ns_add_hook(FIB_DISABLE_HOOK, zebra_fib_disabled);
-		ns_add_hook(FIB_DELETE_HOOK, zebra_fib_delete);
+		fib_add_hook(FIB_NEW_HOOK, zebra_fib_new);
+		fib_add_hook(FIB_ENABLE_HOOK, zebra_fib_enabled);
+		fib_add_hook(FIB_DISABLE_HOOK, zebra_fib_disabled);
+		fib_add_hook(FIB_DELETE_HOOK, zebra_fib_delete);
 		// TODO: should I implement fib_notify?
 	}
 

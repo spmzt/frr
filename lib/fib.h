@@ -33,6 +33,26 @@ struct fib {
 RB_HEAD(fib_head, fib);
 RB_PROTOTYPE(fib_head, fib, entry, fib_compare);
 
+/*
+ * FIB hooks
+ */
+
+#define FIB_NEW_HOOK        0   /* a new fib is just created */
+#define FIB_DELETE_HOOK     1   /* a fib is to be deleted */
+#define FIB_ENABLE_HOOK     2   /* a fib is ready to use */
+#define FIB_DISABLE_HOOK    3   /* a fib is to be unusable */
+
+/*
+ * Add a specific hook fib module.
+ * @param1: hook type
+ * @param2: the callback function
+ *          - param 1: the FIB ID
+ *          - param 2: the address of the user data pointer (the user data
+ *                     can be stored in or freed from there)
+ */
+extern void fib_add_hook(int type, int (*)(struct fib *));
+
+
 extern void fib_init(void);
 
 extern int have_fib(void);

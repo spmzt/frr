@@ -229,6 +229,27 @@ void *fib_info_lookup(fib_id_t fib_id)
 	return fib ? fib->info : NULL;
 }
 
+/* Add a FIB hook. Please add hooks before calling fib_init(). */
+void fib_add_hook(int type, int (*func)(struct fib *))
+{
+	switch (type) {
+	case FIB_NEW_HOOK:
+		fib_master.fib_new_hook = func;
+		break;
+	case FIB_DELETE_HOOK:
+		fib_master.fib_delete_hook = func;
+		break;
+	case FIB_ENABLE_HOOK:
+		fib_master.fib_enable_hook = func;
+		break;
+	case FIB_DISABLE_HOOK:
+		fib_master.fib_disable_hook = func;
+		break;
+	default:
+		break;
+	}
+}
+
 void fib_init(void)
 {
     fib_debug = 0;

@@ -17,7 +17,7 @@ struct zebra_fib {
 	struct fib *fib;
 };
 
-int zebra_ns_init(void);
+int zebra_fib_init(void);
 
 int zebra_fib_enable(fib_id_t fib_id, void **info);
 
