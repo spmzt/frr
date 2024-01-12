@@ -9,6 +9,7 @@
 #include "lib/mlag.h"
 
 #include "zebra/zebra_ns.h"
+#include "zebra/zebra_fib.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -27,6 +28,7 @@ struct zebra_router_table {
 	afi_t afi;
 	safi_t safi;
 	ns_id_t ns_id;
+	fib_id_t fib_id;
 
 	struct route_table *table;
 };

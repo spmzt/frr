@@ -132,7 +132,10 @@ struct route_table *zebra_router_get_table(struct zebra_vrf *zvrf,
 	zrt->tableid = tableid;
 	zrt->afi = afi;
 	zrt->safi = safi;
-	zrt->ns_id = zvrf->zns->ns_id;
+	if (vrf_is_backend_fib())
+		zrt->fib_id = zvrf->zfib->fib_id;
+	else
+		zrt->ns_id = zvrf->zns->ns_id;
 	zrt->table =
 		(afi == AFI_IP6) ? srcdest_table_init() : route_table_init();
 
