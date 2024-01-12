@@ -72,7 +72,7 @@ int fib_get_current_max(void)
 
 int have_fib(void)
 {
-#ifdef __FreeBSD__ && SO_SETFIB
+#if defined(__FreeBSD__) && defined(SO_SETFIB)
     return 1;
 #else
 	return 0;
