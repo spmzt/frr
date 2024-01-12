@@ -36,6 +36,18 @@ static struct fib_master {
 	0,
 };
 
+static inline int fib_compare(const struct fib *a, const struct fib *b)
+{
+	return (a->fib_id - b->fib_id);
+}
+
+int fib_get_current_id(int *fib_id)
+{
+    size_t len;
+    len = sizeof(fib_id);
+    return sysctlbyname("net.my_fibnum", fib_id, &len, NULL, 0);
+}
+
 /* Look up a FIB by identifier. */
 static struct fib *fib_lookup_internal(fib_id_t fib_id)
 {
@@ -48,6 +60,31 @@ static struct fib *fib_lookup_internal(fib_id_t fib_id)
 struct fib *fib_lookup(fib_id_t fib_id)
 {
 	return fib_lookup_internal(fib_id);
+}
+
+int fib_get_current_max(void)
+{
+    size_t len;
+    len = sizeof(fib_current_max);
+    return sysctlbyname("net.fibs", &fib_current_max, &len, NULL, 0);
+}
+
+int have_fib(void)
+{
+#ifdef __FreeBSD__ && SO_SETFIB
+    return 1;
+#else
+	return 0;
+#endif
+}
+
+static int fib_is_enabled(struct fib *fib)
+{
+	if (have_fib())
+		fib_get_current_max();
+		return fib && fib->fib_id <= fib_current_max;
+	else
+		return fib && fib->fib_id == 0;
 }
 
 /*
@@ -68,43 +105,49 @@ static void fib_disable_internal(struct fib *fib)
 	}
 }
 
-struct fib *fib_get_created(struct fib *fib, fib_id_t fib_id)
+void fib_disable(struct fib *fib)
 {
-	return fib_get_created(fib, fib_id)
+	fib_disable_internal(fib);
 }
 
-int fib_enable(struct fib *fib, void (*func)(fib_id_t, void *))
+/* Delete a FIB. This is called in ns_terminate(). */
+void fib_delete(struct fib *fib)
 {
-	return fib_enable_internal(fib, func);
-}
+	if (fib_debug)
+		zlog_info("FIB %d is to be deleted.", fib->fib_id);
 
-static struct fib *fib_get_created_internal(struct fib *fib, fib_id_t fib_id)
-{
-	int created = 0;
+	fib_disable(fib);
+
+	if (fib_master.fib_delete_hook)
+		(*fib_master.fib_delete_hook)(fib);
+
 	/*
-	 * Initialize interfaces.
+	 * I'm not entirely sure if the vrf->iflist
+	 * needs to be moved into here or not.
 	 */
-	if (!fib && fib_id == FIB_DEFAULT)
-		fib = fib_lookup_internal(fib_id);
-	if (!fib) {
-		fib = XCALLOC(MTYPE_FIB, sizeof(struct fib));
-		fib->fib_id = fib_id;
-		RB_INSERT(fib_head, &fib_tree, fib);
-		created = 1;
-	}
-	if (fib_id != fib->fib_id) {
-		RB_REMOVE(fib_head, &fib_tree, fib);
-		fib->fib_id = fib_id;
-		RB_INSERT(fib_head, &fib_tree, fib);
-	}
-	if (!created)
-		return fib;
-	if (fib_debug) {
-		zlog_info("FIB %u is created.", fib->fib_id);
-	}
-	if (fib_master.fib_new_hook)
-		(*fib_master.fib_new_hook)(fib);
-	return fib;
+	// if_terminate (&fib->iflist);
+
+	RB_REMOVE(fib_head, &fib_tree, fib);
+	XFREE(MTYPE_FIB_ID, fib->fib_id);
+
+	XFREE(MTYPE_FIB, fib);
+}
+
+int fib_set_current_max(fib_id_t fib_newmax)
+{
+	if (fib_newmax <= fib_current_max)
+		return 0;
+    int ret;
+    size_t newlen;
+    newlen = sizeof(fib_newmax);
+    size_t oldlen;
+    oldlen = sizeof(fib_current_max);
+    ret = sysctlbyname("net.fibs", &fib_current_max, &oldlen, &fib_newmax, newlen);
+    if (ret >= 0)
+    {
+        fib_current_max = fib_newmax;
+    }
+    return ret;
 }
 
 static int fib_enable_internal(struct fib *fib, void (*func)(fib_id_t, void *))
@@ -138,36 +181,43 @@ static int fib_enable_internal(struct fib *fib, void (*func)(fib_id_t, void *))
 	return 1;
 }
 
-static int fib_is_enabled(struct fib *fib)
+int fib_enable(struct fib *fib, void (*func)(fib_id_t, void *))
 {
-	if (have_fib())
-		fib_get_current_max();
-		return fib && fib->fib_id <= fib_current_max;
-	else
-		return fib && fib->fib_id == 0;
+	return fib_enable_internal(fib, func);
 }
 
-/* Delete a FIB. This is called in ns_terminate(). */
-void fib_delete(struct fib *fib)
+static struct fib *fib_get_created_internal(struct fib *fib, fib_id_t fib_id)
 {
-	if (fib_debug)
-		zlog_info("FIB %d is to be deleted.", fib->fib_id);
-
-	fib_disable(fib);
-
-	if (fib_master.fib_delete_hook)
-		(*fib_master.fib_delete_hook)(fib);
-
+	int created = 0;
 	/*
-	 * I'm not entirely sure if the vrf->iflist
-	 * needs to be moved into here or not.
+	 * Initialize interfaces.
 	 */
-	// if_terminate (&fib->iflist);
+	if (!fib && fib_id == FIB_DEFAULT)
+		fib = fib_lookup(fib_id);
+	if (!fib) {
+		fib = XCALLOC(MTYPE_FIB, sizeof(struct fib));
+		fib->fib_id = fib_id;
+		RB_INSERT(fib_head, &fib_tree, fib);
+		created = 1;
+	}
+	if (fib_id != fib->fib_id) {
+		RB_REMOVE(fib_head, &fib_tree, fib);
+		fib->fib_id = fib_id;
+		RB_INSERT(fib_head, &fib_tree, fib);
+	}
+	if (!created)
+		return fib;
+	if (fib_debug) {
+		zlog_info("FIB %u is created.", fib->fib_id);
+	}
+	if (fib_master.fib_new_hook)
+		(*fib_master.fib_new_hook)(fib);
+	return fib;
+}
 
-	RB_REMOVE(fib_head, &fib_tree, fib);
-	XFREE(MTYPE_FIB_ID, fib->fib_id);
-
-	XFREE(MTYPE_FIB, fib);
+struct fib *fib_get_created(struct fib *fib, fib_id_t fib_id)
+{
+	return fib_get_created_internal(fib, fib_id)
 }
 
 /* Look up the data pointer of the specified Zebra VRF. */
@@ -176,25 +226,6 @@ void *fib_info_lookup(fib_id_t fib_id)
 	struct fib *fib = fib_lookup_internal(fib_id);
 
 	return fib ? fib->info : NULL;
-}
-
-void fib_disable(struct fib *fib)
-{
-	fib_disable_internal(fib);
-}
-
-int have_fib(void)
-{
-#ifdef __FreeBSD__ && SO_SETFIB
-    return 1;
-#else
-	return 0;
-#endif
-}
-
-static inline int fib_compare(const struct fib *a, const struct fib *b)
-{
-	return (a->fib_id - b->fib_id);
 }
 
 void fib_init(void)
@@ -272,37 +303,6 @@ int fib_socket(int domain, int type, int protocol, fib_id_t fib_id)
 		}
 
 	return ret;
-}
-
-int fib_get_current_id(int *fib_id)
-{
-    size_t len;
-    len = sizeof(fib_id);
-    return sysctlbyname("net.my_fibnum", fib_id, &len, NULL, 0);
-}
-
-int fib_get_current_max(void)
-{
-    size_t len;
-    len = sizeof(fib_current_max);
-    return sysctlbyname("net.fibs", &fib_current_max, &len, NULL, 0);
-}
-
-int fib_set_current_max(fib_id_t fib_newmax)
-{
-	if (fib_newmax <= fib_current_max)
-		return 0;
-    int ret;
-    size_t newlen;
-    newlen = sizeof(fib_newmax);
-    size_t oldlen;
-    oldlen = sizeof(fib_current_max);
-    ret = sysctlbyname("net.fibs", &fib_current_max, &oldlen, &fib_newmax, newlen);
-    if (ret >= 0)
-    {
-        fib_current_max = fib_newmax;
-    }
-    return ret;
 }
 
 int fib_bind_if(fib_id_t fib_id, const char *ifname)
