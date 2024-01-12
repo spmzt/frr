@@ -96,7 +96,7 @@ static void fib_disable_internal(struct fib *fib)
 {
 	if (fib_is_enabled(fib)) {
 		if (fib_debug)
-			zlog_info("FIB %d is to be disabled.", fib->fib_id);
+			zlog_info("FIB %u is to be disabled.", fib->fib_id);
 
 		if (fib_master.fib_disable_hook)
 			(*fib_master.fib_disable_hook)(fib);
@@ -114,7 +114,7 @@ void fib_disable(struct fib *fib)
 void fib_delete(struct fib *fib)
 {
 	if (fib_debug)
-		zlog_info("FIB %d is to be deleted.", fib->fib_id);
+		zlog_info("FIB %u is to be deleted.", fib->fib_id);
 
 	fib_disable(fib);
 
