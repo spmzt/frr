@@ -217,7 +217,7 @@ static struct fib *fib_get_created_internal(struct fib *fib, fib_id_t fib_id)
 
 struct fib *fib_get_created(struct fib *fib, fib_id_t fib_id)
 {
-	return fib_get_created_internal(fib, fib_id)
+	return fib_get_created_internal(fib, fib_id);
 }
 
 /* Look up the data pointer of the specified Zebra VRF. */
@@ -266,7 +266,7 @@ int fib_switch_to_table(uint16_t fibnum)
     fib_get_current_id(&fib_previous_id);
     ret = setfib(fibnum);
     fib_current_id = fibnum;
-    return ret
+    return ret;
 }
 
 int fib_switchback_to_initial(void)
