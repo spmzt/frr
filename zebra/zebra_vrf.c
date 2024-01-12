@@ -127,7 +127,7 @@ static int zebra_vrf_enable(struct vrf *vrf)
 
 	if (vrf_is_backend_fib())
 		// TODO: Only Tested for default allocation
-		zvrf->zfib = zebra_fib_lookup((fib_id_t)vrf->vrf_data->freebsd->table_id);
+		zvrf->zfib = zebra_fib_lookup((fib_id_t)vrf->data->freebsd->table_id);
 	else if (vrf_is_backend_netns())
 		zvrf->zns = zebra_ns_lookup((ns_id_t)vrf->vrf_id);
 	else
