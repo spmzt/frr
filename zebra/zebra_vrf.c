@@ -599,7 +599,7 @@ DEFUN (no_vrf_netns,
 
 DEFPY (vrf_fib,
        vrf_fib_cmd,
-       "fib id$fib_id",
+       "fib (0-65535)$fib_id",
        "Attach VRF to a FIB\n"
        "FIB ID\n")
 {
