@@ -2964,7 +2964,7 @@ void rtadv_vrf_init(struct zebra_vrf *zvrf)
 	if (!vrf_is_backend_netns() && (zvrf_id(zvrf) != VRF_DEFAULT))
 		return;
 	if (vrf_is_backend_fib())
-		zvrf->rtadv.sock = rtadv_make_fib_socket(zvrf->zns->ns_id);
+		zvrf->rtadv.sock = rtadv_make_fib_socket(zvrf->zfib->fib_id);
 	else
 		zvrf->rtadv.sock = rtadv_make_socket(zvrf->zns->ns_id);
 }
