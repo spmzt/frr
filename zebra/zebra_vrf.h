@@ -265,7 +265,7 @@ extern int zebra_vrf_netns_handler_create(struct vty *vty, struct vrf *vrf,
  * Called either from vty or through discovery.
  */
 extern int zebra_vrf_fib_handler_create(struct vty *vty, struct vrf *vrf,
-				   fib_id_t fib_id)
+				   fib_id_t fib_id);
 
 extern void zebra_vrf_init(void);
 
