@@ -302,6 +302,7 @@ int fib_socket(int domain, int type, int protocol, fib_id_t fib_id)
 				return -1;
 			}
 		}
+	}
 
 	return ret;
 }
