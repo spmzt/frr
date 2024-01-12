@@ -300,6 +300,8 @@ struct interface *if_lookup_by_index(ifindex_t ifindex, vrf_id_t vrf_id)
 	case VRF_BACKEND_UNKNOWN:
 	case VRF_BACKEND_NETNS:
 		return(if_lookup_by_ifindex(ifindex, vrf_id));
+	case VRF_BACKEND_FIB:
+		return(if_lookup_by_ifindex(ifindex, vrf_id));
 	case VRF_BACKEND_VRF_LITE:
 		return(if_lookup_by_index_all_vrf(ifindex));
 	}
@@ -569,6 +571,23 @@ struct interface *if_get_by_name(const char *name, vrf_id_t vrf_id,
 	switch (vrf_get_backend()) {
 	case VRF_BACKEND_UNKNOWN:
 	case VRF_BACKEND_NETNS:
+		vrf = vrf_get(vrf_id, vrf_name);
+		assert(vrf);
+
+		ifp = if_lookup_by_name_vrf(name, vrf);
+		if (ifp) {
+			/* If it came from the kernel or by way of zclient,
+			 * believe it and update the ifp accordingly.
+			 */
+			if (ifp->vrf->vrf_id != vrf_id && vrf_id != VRF_UNKNOWN)
+				if_update_to_new_vrf(ifp, vrf_id);
+
+			return ifp;
+		}
+
+		break;
+	case VRF_BACKEND_FIB:
+		// TODO: should I create new VRF?
 		vrf = vrf_get(vrf_id, vrf_name);
 		assert(vrf);
 

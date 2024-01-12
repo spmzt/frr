@@ -17,7 +17,7 @@
 #include "log.h"
 #include "interface.h"
 #include "vrf.h"
-
+#include "fib.h"
 #include "zebra/rt.h"
 #include "zebra/kernel_socket.h"
 #include "zebra/rib.h"

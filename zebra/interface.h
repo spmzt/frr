@@ -262,6 +262,7 @@ extern struct interface *if_lookup_by_index_per_ns(struct zebra_ns *, uint32_t);
 extern struct interface *if_lookup_by_name_per_ns(struct zebra_ns *,
 						  const char *);
 extern struct interface *if_link_per_ns(struct zebra_ns *, struct interface *);
+extern struct interface *if_link_per_fib(struct zebra_fib *fib, struct interface *ifp);
 extern struct interface *if_lookup_by_index_per_nsid(ns_id_t nsid,
 						     uint32_t ifindex);
 extern const char *ifindex2ifname_per_ns(struct zebra_ns *, unsigned int);

@@ -122,7 +122,10 @@ struct route_table *zebra_router_get_table(struct zebra_vrf *zvrf,
 	finder.afi = afi;
 	finder.safi = safi;
 	finder.tableid = tableid;
-	finder.ns_id = zvrf->zns->ns_id;
+	if (vrf_is_backend_fib())
+		finder.fib_id = zvrf->zfib->fib_id;
+	else
+		finder.ns_id = zvrf->zns->ns_id;
 	zrt = RB_FIND(zebra_router_table_head, &zrouter.tables, &finder);
 
 	if (zrt)

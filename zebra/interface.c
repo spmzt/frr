@@ -22,6 +22,7 @@
 
 #include "zebra/rtadv.h"
 #include "zebra_ns.h"
+#include "zebra/fib.h"
 #include "zebra_vrf.h"
 #include "zebra/interface.h"
 #include "zebra/rib.h"
@@ -258,6 +259,29 @@ struct interface *if_link_per_ns(struct zebra_ns *ns, struct interface *ifp)
 
 	if_build_key(ifp->ifindex, &p);
 	rn = route_node_get(ns->if_table, &p);
+	if (rn->info) {
+		ifp = (struct interface *)rn->info;
+		route_unlock_node(rn); /* get */
+		return ifp;
+	}
+
+	rn->info = ifp;
+	ifp->node = rn;
+
+	return ifp;
+}
+
+/* Link an interface in a per FIB interface tree */
+struct interface *if_link_per_fib(struct zebra_fib *fib, struct interface *ifp)
+{
+	struct prefix p;
+	struct route_node *rn;
+
+	if (ifp->ifindex == IFINDEX_INTERNAL)
+		return NULL;
+
+	if_build_key(ifp->ifindex, &p);
+	rn = route_node_get(fib->if_table, &p);
 	if (rn->info) {
 		ifp = (struct interface *)rn->info;
 		route_unlock_node(rn); /* get */
@@ -577,15 +601,25 @@ void if_addr_wakeup(struct interface *ifp)
 void if_add_update(struct interface *ifp)
 {
 	struct zebra_if *if_data;
-	struct zebra_ns *zns;
 	struct zebra_vrf *zvrf = ifp->vrf->info;
 
-	/* case interface populate before vrf enabled */
-	if (zvrf->zns)
-		zns = zvrf->zns;
-	else
-		zns = zebra_ns_lookup(NS_DEFAULT);
-	if_link_per_ns(zns, ifp);
+	if (!vrf_is_backend_fib()) {
+		struct zebra_ns *zns;
+		/* case interface populate before vrf enabled */
+		if (zvrf->zns)
+			zns = zvrf->zns;
+		else
+			zns = zebra_ns_lookup(NS_DEFAULT);
+		if_link_per_ns(zns, ifp);
+	} else {
+		struct zebra_fib *zfib;
+		/* case interface populate before vrf enabled */
+		if (zvrf->zfib)
+			zfib = zvrf->zfib;
+		else
+			zfib = zebra_fib_lookup(FIB_DEFAULT);
+		if_link_per_fib(zfib, ifp)
+	}
 	if_data = ifp->info;
 	assert(if_data);
 
