@@ -142,7 +142,7 @@ int zebra_fib_init(void)
 	zebra_vrf_init();
 
 	// /* Default FIB is activated */
-	zebra_fib_enable(fib_id, (void **)&dzns);
+	zebra_fib_enable(fib_id, (void **)&dzfib);
 
 	if (vrf_is_backend_fib()) {
 		fib_add_hook(FIB_NEW_HOOK, zebra_fib_new);
