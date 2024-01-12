@@ -94,9 +94,11 @@ const struct option longopts[] = {
 	{ "graceful_restart", required_argument, NULL, 'K' },
 	{ "asic-offload", optional_argument, NULL, OPTION_ASIC_OFFLOAD },
 	{ "v6-with-v4-nexthops", no_argument, NULL, OPTION_V6_WITH_V4_NEXTHOP },
+#ifdef __FreeBSD__
+	{ "vrffib", no_argument, NULL, 'I' },
+#endif
 #ifdef HAVE_NETLINK
 	{ "vrfwnetns", no_argument, NULL, 'n' },
-	{ "vrffib", no_argument, NULL, 'f' },
 	{ "nl-bufsize", required_argument, NULL, 's' },
 	{ "v6-rr-semantics", no_argument, NULL, OPTION_V6_RR_SEMANTICS },
 #endif /* HAVE_NETLINK */
@@ -330,7 +332,7 @@ int main(int argc, char **argv)
 		    "n"
 #endif
 #ifdef __FreeBSD__
-		    "f"
+		    "I"
 #endif
 		    ,
 		    longopts,
@@ -341,9 +343,9 @@ int main(int argc, char **argv)
 		    "  -r, --retain              When program terminates, retain added route by zebra.\n"
 		    "  -K, --graceful_restart    Graceful restart at the kernel level, timer in seconds for expiration\n"
 		    "  -A, --asic-offload        FRR is interacting with an asic underneath the linux kernel\n"
-		    "      --v6-with-v4-nexthops Underlying dataplane supports v6 routes with v4 nexthops"
+		    "      --v6-with-v4-nexthops Underlying dataplane supports v6 routes with v4 nexthops\n"
 #ifdef __FreeBSD__
-		    "  -f, --vrffib              Use FIB as VRF backend\n"
+		    "  -I, --vrffib              Use FIB as VRF backend\n"
 #endif /* __FreeBSD__ */
 #ifdef HAVE_NETLINK
 		    "  -s, --nl-bufsize          Set netlink receive buffer size\n"
@@ -429,9 +431,9 @@ int main(int argc, char **argv)
 			break;
 #endif /* HAVE_NETLINK */
 #ifdef __FreeBSD__
-		case 'f':
+		case 'I':
 			if (vrf_is_backend_netns()) {
-				fprintf(stderr, "Can't use '-f' with '-n'\n");
+				fprintf(stderr, "Can't use '-I' with '-n'\n");
 				exit(1);
 			}
 			vrf_configure_backend(VRF_BACKEND_FIB);
