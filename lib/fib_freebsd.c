@@ -7,6 +7,7 @@
 #include "log.h"
 #include "memory.h"
 #include "fib.h"
+#include "lib_errors.h"
 
 DEFINE_MTYPE_STATIC(LIB, FIB, "FIB Context");
 DEFINE_MTYPE_STATIC(LIB, FIB_ID, "FIB ID");
